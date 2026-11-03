@@ -1,0 +1,3484 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EcoHome 3D - Simulator Rumah Mandiri Energi</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- Font Awesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & Plus Jakarta Sans -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        display: ['Plus Jakarta Sans', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: #0b1120;
+            color: #f8fafc;
+        }
+        #canvas-container {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 1;
+        }
+        canvas {
+            display: block;
+            width: 100%;
+            height: 100%;
+        }
+        /* Glassmorphism Panels */
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.82);
+            backdrop-filter: blur(14px);
+            -webkit-backdrop-filter: blur(14px);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 20px 40px -15px rgba(0, 0, 0, 0.6);
+        }
+        .glass-card {
+            background: rgba(30, 41, 59, 0.65);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            transition: all 0.2s ease;
+        }
+        .glass-card:hover {
+            border-color: rgba(255, 255, 255, 0.18);
+            background: rgba(30, 41, 59, 0.85);
+        }
+        /* Custom Scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(100, 116, 139, 0.5);
+            border-radius: 8px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(148, 163, 184, 0.8);
+        }
+        /* Range Slider Styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100%;
+            height: 6px;
+            border-radius: 999px;
+            background: rgba(71, 85, 105, 0.6);
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 8px rgba(56, 189, 248, 0.6);
+            transition: transform 0.15s ease;
+        }
+        input[type=range]::-webkit-slider-thumb:hover {
+            transform: scale(1.2);
+        }
+        .slider-amber::-webkit-slider-thumb {
+            background: #fbbf24 !important;
+            box-shadow: 0 0 8px rgba(251, 191, 36, 0.6) !important;
+        }
+        .slider-cyan::-webkit-slider-thumb {
+            background: #22d3ee !important;
+            box-shadow: 0 0 8px rgba(34, 211, 238, 0.6) !important;
+        }
+        .slider-emerald::-webkit-slider-thumb {
+            background: #34d399 !important;
+            box-shadow: 0 0 8px rgba(52, 211, 153, 0.6) !important;
+        }
+        /* 3D Floating Labels */
+        .label-3d {
+            position: absolute;
+            transform: translate(-50%, -100%);
+            pointer-events: none;
+            transition: opacity 0.2s ease;
+            z-index: 5;
+        }
+        @keyframes pulse-glow {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.75; transform: scale(1.04); }
+        }
+        .animate-pulse-slow {
+            animation: pulse-glow 2.5s infinite ease-in-out;
+        }
+    </style>
+</head>
+<body class="relative select-none">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container"></div>
+
+    <!-- 3D Floating Overlay Labels -->
+    <div id="labels-container" class="absolute inset-0 pointer-events-none overflow-hidden z-10">
+        <!-- Solar Label -->
+        <div id="label-solar" class="label-3d pointer-events-auto cursor-pointer group" onclick="openDeviceEduModal('solar')" title="Klik untuk lihat konsep fisika & perhitungan Panel Surya">
+            <div class="glass-panel px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-amber-400/50 group-hover:border-amber-300 group-hover:scale-105 transition shadow-lg">
+                <i class="fa-solid fa-solar-panel text-amber-400 text-xs"></i>
+                <span class="text-[11px] font-semibold text-amber-200" id="label-solar-val">0 W</span>
+                <i class="fa-solid fa-circle-question text-[10px] text-amber-300/80 ml-0.5"></i>
+            </div>
+        </div>
+        <!-- Wind Label -->
+        <div id="label-wind" class="label-3d pointer-events-auto cursor-pointer group" onclick="openDeviceEduModal('wind')" title="Klik untuk lihat konsep fisika & perhitungan Kincir Angin">
+            <div class="glass-panel px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-sky-400/50 group-hover:border-sky-300 group-hover:scale-105 transition shadow-lg">
+                <i class="fa-solid fa-fan fa-spin text-sky-400 text-xs"></i>
+                <span class="text-[11px] font-semibold text-sky-200" id="label-wind-val">0 W</span>
+                <i class="fa-solid fa-circle-question text-[10px] text-sky-300/80 ml-0.5"></i>
+            </div>
+        </div>
+        <!-- Piezo Label -->
+        <div id="label-piezo" class="label-3d pointer-events-auto cursor-pointer group" onclick="openDeviceEduModal('piezo')" title="Klik untuk lihat konsep fisika & perhitungan Lantai Piezoelektrik">
+            <div class="glass-panel px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-emerald-400/50 group-hover:border-emerald-300 group-hover:scale-105 transition shadow-lg">
+                <i class="fa-solid fa-shoe-prints text-emerald-400 text-xs"></i>
+                <span class="text-[11px] font-semibold text-emerald-200" id="label-piezo-val">0 W</span>
+                <i class="fa-solid fa-circle-question text-[10px] text-emerald-300/80 ml-0.5"></i>
+            </div>
+        </div>
+        <!-- House Load Label -->
+        <div id="label-house" class="label-3d pointer-events-auto cursor-pointer group" onclick="openDeviceEduModal('battery')" title="Klik untuk lihat sistem Baterai & Manajemen Daya Rumah">
+            <div class="glass-panel px-2.5 py-1 rounded-full flex items-center gap-1.5 border border-rose-400/50 group-hover:border-rose-300 group-hover:scale-105 transition shadow-lg">
+                <i class="fa-solid fa-plug-circle-bolt text-rose-400 text-xs"></i>
+                <span class="text-[11px] font-semibold text-rose-200" id="label-house-val">Beban: 0 W</span>
+                <i class="fa-solid fa-circle-question text-[10px] text-rose-300/80 ml-0.5"></i>
+            </div>
+        </div>
+    </div>
+
+    <!-- FLOATING HINT BANNER -->
+    <div id="touch-hint-banner" class="fixed top-36 xl:top-20 left-1/2 -translate-x-1/2 z-10 pointer-events-auto hidden sm:flex items-center gap-2.5 px-3.5 py-1.5 rounded-full glass-panel border border-cyan-500/30 text-[11px] text-cyan-200 shadow-lg transition-all duration-300">
+        <i class="fa-solid fa-hand-pointer text-cyan-400 animate-bounce"></i>
+        <span>Sentuh/klik langsung <b>Panel Surya</b>, <b>Kincir Angin</b>, atau <b>Lantai Piezo</b> di 3D untuk melihat konsep fisika & rumusnya!</span>
+        <button onclick="document.getElementById('touch-hint-banner').classList.add('!hidden')" class="ml-1 w-5 h-5 rounded-full bg-slate-800/80 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center transition" title="Tutup petunjuk">
+            <i class="fa-solid fa-xmark text-[10px]"></i>
+        </button>
+    </div>
+
+    <!-- TOP NAVIGATION & ENVIRONMENT CONTROLS -->
+    <header id="main-header" class="absolute top-3 left-3 right-3 z-20 flex flex-wrap items-start justify-between gap-2 pointer-events-none">
+        <!-- Brand & Independence Status -->
+        <div class="glass-panel px-4 py-2.5 rounded-2xl flex items-center gap-3 pointer-events-auto">
+            <div class="w-10 h-10 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                <i class="fa-solid fa-house-signal text-slate-950 text-lg"></i>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-display font-bold text-sm sm:text-base tracking-tight text-white">Rumah Mandiri Energi 3D</h1>
+                    <span id="status-badge" class="px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                        Mandiri (Surplus)
+                    </span>
+                </div>
+                <p class="text-[11px] text-slate-400 hidden sm:block">Simulasi Interaktif Surya, Kincir Angin, Piezoelektrik & Beban Rumah</p>
+            </div>
+        </div>
+
+        <!-- Time of Day & Weather Bar (Collapsible) -->
+        <div class="flex flex-col items-center pointer-events-auto">
+            <div id="panel-weather-bar" class="glass-panel px-3.5 py-2 rounded-2xl flex flex-wrap items-center gap-3 transition-all duration-300">
+                <!-- Time Control -->
+                <div class="flex items-center gap-2">
+                    <button id="btn-play-time" onclick="toggleAutoTime()" class="w-8 h-8 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-400 flex items-center justify-center border border-slate-700 transition" title="Putar/Jeda Siklus Waktu Otomatis">
+                        <i id="icon-play-time" class="fa-solid fa-play text-xs"></i>
+                    </button>
+                    <div class="w-28 sm:w-36">
+                        <div class="flex justify-between text-[11px] font-medium mb-1">
+                            <span class="text-slate-300 flex items-center gap-1">
+                                <i id="time-icon" class="fa-solid fa-sun text-amber-400"></i>
+                                <span id="time-label">12:00 Siang</span>
+                            </span>
+                        </div>
+                        <input id="slider-time" type="range" min="0" max="23.9" step="0.1" value="12" class="slider-amber" oninput="updateTimeFromSlider(this.value)">
+                    </div>
+                </div>
+
+                <div class="h-6 w-px bg-slate-700 hidden sm:block"></div>
+
+                <!-- Weather Presets -->
+                <div class="flex items-center gap-1">
+                    <button onclick="setWeatherPreset('cerah')" id="weather-cerah" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-sun"></i> <span class="hidden md:inline">Cerah</span>
+                    </button>
+                    <button onclick="setWeatherPreset('berawan')" id="weather-berawan" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800/80 text-slate-300 border border-transparent hover:border-slate-600 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-cloud-sun"></i> <span class="hidden md:inline">Berawan</span>
+                    </button>
+                    <button onclick="setWeatherPreset('berangin')" id="weather-berangin" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800/80 text-slate-300 border border-transparent hover:border-slate-600 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-wind"></i> <span class="hidden md:inline">Berangin</span>
+                    </button>
+                    <button onclick="setWeatherPreset('malam')" id="weather-malam" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800/80 text-slate-300 border border-transparent hover:border-slate-600 flex items-center gap-1.5 transition">
+                        <i class="fa-solid fa-moon"></i> <span class="hidden md:inline">Malam</span>
+                    </button>
+                </div>
+
+                <!-- Tombol Tutup Bar Cuaca & Waktu -->
+                <button onclick="togglePanelVisibility('weather')" class="w-7 h-7 rounded-lg bg-slate-800/90 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700 flex items-center justify-center transition ml-1" title="Sembunyikan Panel Waktu & Cuaca">
+                    <i class="fa-solid fa-chevron-up text-xs"></i>
+                </button>
+            </div>
+
+            <!-- Tombol Munculkan Kembali Bar Cuaca (Muncul saat ditutup) -->
+            <button id="restore-weather-bar" onclick="togglePanelVisibility('weather')" class="hidden glass-panel px-3 py-1.5 rounded-full text-xs font-semibold text-amber-300 border border-amber-500/40 hover:bg-slate-800 items-center gap-2 shadow-lg transition">
+                <i class="fa-solid fa-cloud-sun"></i>
+                <span>Waktu & Cuaca</span>
+                <i class="fa-solid fa-chevron-down text-[10px] text-slate-400"></i>
+            </button>
+        </div>
+
+        <!-- 3D View & Camera Controls -->
+        <div class="glass-panel px-2.5 py-2 rounded-2xl flex items-center gap-1.5 pointer-events-auto">
+            <button onclick="toggleCutawayMode()" id="btn-cutaway" class="px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 flex items-center gap-1.5 transition" title="Lihat peralatan listrik di dalam rumah">
+                <i class="fa-solid fa-eye"></i>
+                <span class="hidden sm:inline">Intip Dalam Rumah</span>
+            </button>
+            <button onclick="setCameraView('overview')" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 transition" title="Kamera Utama">
+                <i class="fa-solid fa-expand"></i> <span class="hidden md:inline">Semua</span>
+            </button>
+            <button onclick="setCameraView('solar')" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-amber-300 transition hidden sm:inline-flex items-center gap-1" title="Fokus Panel Surya">
+                <i class="fa-solid fa-solar-panel"></i>
+            </button>
+            <button onclick="setCameraView('wind')" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-sky-300 transition hidden sm:inline-flex items-center gap-1" title="Fokus Kincir Angin">
+                <i class="fa-solid fa-fan"></i>
+            </button>
+            <button onclick="setCameraView('piezo')" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800 hover:bg-slate-700 text-emerald-300 transition hidden sm:inline-flex items-center gap-1" title="Fokus Lantai Piezoelektrik">
+                <i class="fa-solid fa-shoe-prints"></i>
+            </button>
+            <button onclick="toggle3DLabels()" id="btn-labels" class="px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-700 text-white transition" title="Tampilkan/Sembunyikan Label 3D">
+                <i class="fa-solid fa-tag"></i>
+            </button>
+            <button onclick="toggleAllPanels()" id="btn-clean-view" class="px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 transition" title="Sembunyikan/Tampilkan Semua Panel agar Pemandangan 3D Luas">
+                <i id="icon-clean-view" class="fa-solid fa-panorama"></i>
+                <span id="text-clean-view" class="hidden xl:inline">Layar Penuh</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- FLOATING RESTORE BUTTONS FOR LEFT & RIGHT PANELS (VISIBLE WHEN PANELS ARE CLOSED) -->
+    <button id="restore-panel-left" onclick="togglePanelVisibility('left')" class="fixed top-36 xl:top-24 left-3 z-20 hidden glass-panel px-3.5 py-2.5 rounded-2xl text-xs font-bold text-amber-300 border border-amber-500/40 hover:border-amber-400 hover:scale-105 items-center gap-2 shadow-xl transition">
+        <i class="fa-solid fa-bolt text-amber-400"></i>
+        <span>Sumber Energi</span>
+        <i class="fa-solid fa-chevron-right text-[10px] text-slate-300"></i>
+    </button>
+
+    <button id="restore-panel-right" onclick="togglePanelVisibility('right')" class="fixed top-36 xl:top-24 right-3 z-20 hidden glass-panel px-3.5 py-2.5 rounded-2xl text-xs font-bold text-cyan-300 border border-cyan-500/40 hover:border-cyan-400 hover:scale-105 items-center gap-2 shadow-xl transition">
+        <i class="fa-solid fa-chevron-left text-[10px] text-slate-300"></i>
+        <i class="fa-solid fa-plug text-cyan-400"></i>
+        <span>Peralatan & Analisis</span>
+    </button>
+
+    <!-- LEFT SIDEBAR: KUSTOMISASI SUMBER ENERGI -->
+    <aside id="panel-left" class="fixed top-36 xl:top-20 bottom-24 left-3 z-20 w-80 sm:w-88 glass-panel rounded-2xl flex flex-col overflow-hidden transition-all duration-300">
+        <!-- Sidebar Header -->
+        <div class="px-4 py-3 border-b border-slate-700/70 flex items-center justify-between">
+            <div class="flex items-center gap-2">
+                <i class="fa-solid fa-bolt text-amber-400"></i>
+                <h2 class="font-display font-bold text-sm text-white">Kustomisasi Sumber Energi</h2>
+            </div>
+            <button onclick="togglePanelVisibility('left')" class="px-2 py-1 rounded-lg bg-slate-800/90 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700 flex items-center gap-1 text-[11px] font-medium transition" title="Tutup Panel Sumber Energi">
+                <i class="fa-solid fa-chevron-left text-[10px]"></i>
+                <span>Tutup</span>
+            </button>
+        </div>
+
+        <!-- Scrollable Content -->
+        <div class="p-3.5 overflow-y-auto space-y-3.5 flex-1">
+
+            <!-- 1. PANEL SURYA (SOLAR PV) -->
+            <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-amber-400">
+                <div class="flex items-center justify-between mb-2.5">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
+                            <i class="fa-solid fa-solar-panel text-sm"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-xs text-white flex items-center gap-1.5">
+                                Panel Surya (Atap)
+                                <button onclick="openDeviceEduModal('solar')" class="px-1.5 py-0.5 rounded-md bg-amber-500/20 hover:bg-amber-500/40 text-amber-300 text-[10px] font-bold transition" title="Penjelasan & Rumus Panel Surya">
+                                    <i class="fa-solid fa-book-open mr-0.5"></i> Cara Kerja
+                                </button>
+                            </h3>
+                            <p class="text-[10px] text-slate-400">Fotovoltaik Monokristalin</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span id="ui-solar-out" class="text-sm font-bold text-amber-400">0 W</span>
+                        <p id="ui-solar-max" class="text-[10px] text-slate-400">Maks: 3.200 Wp</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2.5 text-xs">
+                    <!-- Jumlah Panel -->
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-300">Jumlah Panel di Atap</span>
+                            <span class="font-semibold text-amber-300"><span id="val-solar-count">8</span> Unit</span>
+                        </div>
+                        <input type="range" id="input-solar-count" min="0" max="16" step="1" value="8" class="slider-amber" oninput="updateEnergyConfig()">
+                    </div>
+
+                    <!-- Kapasitas per Panel -->
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-300">Kapasitas per Panel</span>
+                            <span class="font-semibold text-amber-300"><span id="val-solar-wp">400</span> Wp</span>
+                        </div>
+                        <input type="range" id="input-solar-wp" min="100" max="650" step="50" value="400" class="slider-amber" oninput="updateEnergyConfig()">
+                    </div>
+
+                    <!-- Intensitas Cahaya / Cuaca -->
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-300">Efisiensi & Intensitas Cahaya</span>
+                            <span class="font-semibold text-amber-300"><span id="val-solar-eff">85</span>%</span>
+                        </div>
+                        <input type="range" id="input-solar-eff" min="10" max="100" step="5" value="85" class="slider-amber" oninput="updateEnergyConfig()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 2. KINCIR ANGIN (WIND TURBINE) -->
+            <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-sky-400">
+                <div class="flex items-center justify-between mb-2.5">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-lg bg-sky-500/20 text-sky-400 flex items-center justify-center">
+                            <i class="fa-solid fa-fan text-sm"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-xs text-white flex items-center gap-1.5">
+                                Kincir Angin (Halaman)
+                                <button onclick="openDeviceEduModal('wind')" class="px-1.5 py-0.5 rounded-md bg-sky-500/20 hover:bg-sky-500/40 text-sky-300 text-[10px] font-bold transition" title="Penjelasan & Rumus Kincir Angin">
+                                    <i class="fa-solid fa-book-open mr-0.5"></i> Cara Kerja
+                                </button>
+                            </h3>
+                            <p class="text-[10px] text-slate-400">Turbin Angin Mikro</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span id="ui-wind-out" class="text-sm font-bold text-sky-400">0 W</span>
+                        <p id="ui-wind-max" class="text-[10px] text-slate-400">Maks: 2.000 W</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2.5 text-xs">
+                    <!-- Jumlah Kincir -->
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-300">Jumlah Kincir Angin</span>
+                            <span class="font-semibold text-sky-300"><span id="val-wind-count">2</span> Unit</span>
+                        </div>
+                        <input type="range" id="input-wind-count" min="0" max="4" step="1" value="2" class="slider-cyan" oninput="updateEnergyConfig()">
+                    </div>
+
+                    <!-- Kapasitas per Turbin -->
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-300">Kapasitas per Turbin</span>
+                            <span class="font-semibold text-sky-300"><span id="val-wind-cap">1000</span> W</span>
+                        </div>
+                        <input type="range" id="input-wind-cap" min="300" max="2500" step="100" value="1000" class="slider-cyan" oninput="updateEnergyConfig()">
+                    </div>
+
+                    <!-- Kecepatan Angin -->
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-300">Kecepatan Angin</span>
+                            <span class="font-semibold text-sky-300"><span id="val-wind-speed">7.5</span> m/s</span>
+                        </div>
+                        <input type="range" id="input-wind-speed" min="0" max="15" step="0.5" value="7.5" class="slider-cyan" oninput="updateEnergyConfig()">
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. LANTAI PIEZOELEKTRIK -->
+            <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-emerald-400">
+                <div class="flex items-center justify-between mb-2.5">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
+                            <i class="fa-solid fa-shoe-prints text-sm"></i>
+                        </div>
+                        <div>
+                            <h3 class="font-semibold text-xs text-white flex items-center gap-1.5">
+                                Lantai Piezoelektrik
+                                <button onclick="openDeviceEduModal('piezo')" class="px-1.5 py-0.5 rounded-md bg-emerald-500/20 hover:bg-emerald-500/40 text-emerald-300 text-[10px] font-bold transition" title="Penjelasan & Rumus Piezoelektrik">
+                                    <i class="fa-solid fa-book-open mr-0.5"></i> Cara Kerja
+                                </button>
+                            </h3>
+                            <p class="text-[10px] text-slate-400">Pemanen Energi Langkah Kaki</p>
+                        </div>
+                    </div>
+                    <div class="text-right">
+                        <span id="ui-piezo-out" class="text-sm font-bold text-emerald-400">0 W</span>
+                        <p id="ui-piezo-tiles" class="text-[10px] text-slate-400">48 Ubin Aktif</p>
+                    </div>
+                </div>
+
+                <div class="space-y-2.5 text-xs">
+                    <!-- Jumlah Ubin Piezo -->
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-300">Jumlah Ubin Lantai Piezo</span>
+                            <span class="font-semibold text-emerald-300"><span id="val-piezo-count">48</span> Ubin</span>
+                        </div>
+                        <input type="range" id="input-piezo-count" min="8" max="64" step="8" value="48" class="slider-emerald" oninput="updateEnergyConfig()">
+                    </div>
+
+                    <!-- Daya per Injakan -->
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-300">Konversi Daya per Langkah</span>
+                            <span class="font-semibold text-emerald-300"><span id="val-piezo-watt">12</span> W/injak</span>
+                        </div>
+                        <input type="range" id="input-piezo-watt" min="2" max="30" step="1" value="12" class="slider-emerald" oninput="updateEnergyConfig()">
+                    </div>
+
+                    <!-- Aktivitas Penghuni -->
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-300">Aktivitas Penghuni Berjalan</span>
+                            <span class="font-semibold text-emerald-300"><span id="val-piezo-people">3</span> Orang</span>
+                        </div>
+                        <input type="range" id="input-piezo-people" min="0" max="6" step="1" value="3" class="slider-emerald" oninput="updateEnergyConfig()">
+                    </div>
+
+                    <!-- Tombol Simulasi Injak Langsung -->
+                    <button onclick="triggerPiezoFootstepBoost()" class="w-full py-2 px-3 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 active:scale-95 text-emerald-300 border border-emerald-500/40 font-semibold text-xs flex items-center justify-center gap-2 transition">
+                        <i class="fa-solid fa-bolt-lightning"></i>
+                        <span>Simulasi Injak Lantai (+Boost Energi)</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 4. SISTEM BATERAI PENYIMPANAN -->
+            <div class="glass-card rounded-xl p-3.5 border-l-4 border-l-purple-400">
+                <div class="flex items-center justify-between mb-2">
+                    <div class="flex items-center gap-2">
+                        <div class="w-7 h-7 rounded-lg bg-purple-500/20 text-purple-400 flex items-center justify-center shrink-0">
+                            <i class="fa-solid fa-car-battery text-sm"></i>
+                        </div>
+                        <div>
+                            <div class="flex items-center gap-1.5 flex-wrap">
+                                <h3 class="font-semibold text-xs text-white">Bank Baterai Rumah</h3>
+                                <button onclick="openDeviceEduModal('battery')" class="px-1.5 py-0.5 rounded-md bg-purple-500/20 hover:bg-purple-500/40 text-purple-300 text-[10px] font-bold whitespace-nowrap shrink-0 transition" title="Penjelasan & Rumus Bank Baterai">
+                                    <i class="fa-solid fa-book-open mr-0.5"></i> Cara Kerja
+                                </button>
+                            </div>
+                            <p class="text-[10px] text-slate-400">Penyimpanan Energi Mandiri</p>
+                        </div>
+                    </div>
+                    <span id="ui-battery-pct" class="text-sm font-bold text-purple-300 shrink-0 ml-1">75%</span>
+                </div>
+
+                <div class="w-full h-2.5 bg-slate-800 rounded-full overflow-hidden mb-2 border border-slate-700">
+                    <div id="ui-battery-bar" class="h-full bg-gradient-to-r from-purple-500 to-cyan-400 transition-all duration-300" style="width: 75%"></div>
+                </div>
+
+                <div class="space-y-2 text-xs">
+                    <div>
+                        <div class="flex justify-between text-[11px] mb-1">
+                            <span class="text-slate-300">Kapasitas Total Baterai</span>
+                            <span class="font-semibold text-purple-300"><span id="val-battery-cap">10</span> kWh</span>
+                        </div>
+                        <input type="range" id="input-battery-cap" min="2" max="30" step="2" value="10" oninput="updateEnergyConfig()">
+                    </div>
+                    <p id="ui-battery-status" class="text-[11px] text-slate-300 bg-slate-900/60 px-2.5 py-1.5 rounded-lg border border-slate-800">
+                        Status: Mengisi daya dari surplus energi
+                    </p>
+                </div>
+            </div>
+
+        </div>
+    </aside>
+
+    <!-- RIGHT SIDEBAR: KUSTOMISASI PERALATAN LISTRIK & ANALITIK -->
+    <aside id="panel-right" class="fixed top-36 xl:top-20 bottom-24 right-3 z-20 w-80 sm:w-96 glass-panel rounded-2xl flex flex-col overflow-hidden transition-all duration-300">
+        <!-- Tabs Header -->
+        <div class="px-3 pt-2.5 border-b border-slate-700/70 flex items-center justify-between gap-1.5">
+            <div class="flex gap-1 flex-1">
+                <button onclick="switchRightTab('appliances')" id="tab-btn-appliances" class="flex-1 py-2 px-2.5 rounded-t-xl text-xs font-bold border-b-2 border-cyan-400 text-cyan-300 bg-slate-800/60 flex items-center justify-center gap-1.5 transition">
+                    <i class="fa-solid fa-plug"></i> Peralatan Rumah
+                </button>
+                <button onclick="switchRightTab('analytics')" id="tab-btn-analytics" class="flex-1 py-2 px-2.5 rounded-t-xl text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition">
+                    <i class="fa-solid fa-chart-pie"></i> Analisis Energi
+                </button>
+            </div>
+            <button onclick="togglePanelVisibility('right')" class="mb-1 px-2 py-1 rounded-lg bg-slate-800/90 hover:bg-rose-500/20 text-slate-300 hover:text-rose-300 border border-slate-700 flex items-center gap-1 text-[11px] font-medium shrink-0 transition" title="Tutup Panel Peralatan Rumah">
+                <span>Tutup</span>
+                <i class="fa-solid fa-chevron-right text-[10px]"></i>
+            </button>
+        </div>
+
+        <!-- TAB 1: DAFTAR & CUSTOM PERALATAN LISTRIK -->
+        <div id="tab-content-appliances" class="p-3.5 overflow-y-auto flex-1 space-y-3">
+            <!-- Quick Summary & Add Button -->
+            <div class="flex items-center justify-between bg-slate-900/70 px-3 py-2.5 rounded-xl border border-slate-800">
+                <div>
+                    <span class="text-[11px] text-slate-400 block">Total Konsumsi Aktif</span>
+                    <span id="ui-total-load" class="text-base font-bold text-rose-400">0 Watt</span>
+                </div>
+                <button onclick="openAddApplianceModal()" class="px-3 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs flex items-center gap-1.5 shadow-lg shadow-cyan-500/20 transition">
+                    <i class="fa-solid fa-plus"></i> Tambah Alat
+                </button>
+            </div>
+
+            <p class="text-[11px] text-slate-400 px-1">
+                <i class="fa-solid fa-circle-info text-cyan-400 mr-1"></i>
+                Nyalakan/matikan atau ubah daya watt & jumlah peralatan. Objek 3D di dalam rumah akan menyala sesuai status!
+            </p>
+
+            <!-- Appliance Items Container -->
+            <div id="appliances-list" class="space-y-2.5">
+                <!-- Populated dynamically via JS -->
+            </div>
+        </div>
+
+        <!-- TAB 2: ANALISIS KEMANDIRIAN ENERGI -->
+        <div id="tab-content-analytics" class="p-3.5 overflow-y-auto flex-1 space-y-3.5 hidden">
+            <!-- Independence Score Card -->
+            <div class="glass-card rounded-xl p-4 text-center relative overflow-hidden">
+                <span class="text-[11px] uppercase tracking-wider font-semibold text-slate-400">Indeks Kemandirian Energi</span>
+                <div id="analytics-score" class="text-4xl font-display font-extrabold text-emerald-400 my-1">100%</div>
+                <p id="analytics-verdict" class="text-xs text-slate-300">Rumah mampu memenuhi seluruh kebutuhan listrik secara mandiri.</p>
+            </div>
+
+            <!-- Power Distribution Bars -->
+            <div class="glass-card rounded-xl p-3.5 space-y-2.5">
+                <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-bolt text-amber-400"></i> Kontribusi Sumber Energi Saat Ini
+                </h4>
+                <!-- Solar Share -->
+                <div>
+                    <div class="flex justify-between text-[11px] mb-1">
+                        <span class="text-amber-300">Panel Surya</span>
+                        <span id="stat-solar-pct" class="font-semibold text-white">0% (0 W)</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div id="bar-solar-pct" class="h-full bg-amber-400" style="width: 0%"></div>
+                    </div>
+                </div>
+                <!-- Wind Share -->
+                <div>
+                    <div class="flex justify-between text-[11px] mb-1">
+                        <span class="text-sky-300">Kincir Angin</span>
+                        <span id="stat-wind-pct" class="font-semibold text-white">0% (0 W)</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div id="bar-wind-pct" class="h-full bg-sky-400" style="width: 0%"></div>
+                    </div>
+                </div>
+                <!-- Piezo Share -->
+                <div>
+                    <div class="flex justify-between text-[11px] mb-1">
+                        <span class="text-emerald-300">Lantai Piezoelektrik</span>
+                        <span id="stat-piezo-pct" class="font-semibold text-white">0% (0 W)</span>
+                    </div>
+                    <div class="w-full h-2 bg-slate-800 rounded-full overflow-hidden">
+                        <div id="bar-piezo-pct" class="h-full bg-emerald-400" style="width: 0%"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Daily Estimation (kWh/day) -->
+            <div class="glass-card rounded-xl p-3.5 space-y-2">
+                <h4 class="text-xs font-bold text-white flex items-center gap-1.5">
+                    <i class="fa-solid fa-calendar-day text-cyan-400"></i> Estimasi Energi Harian (24 Jam)
+                </h4>
+                <div class="grid grid-cols-2 gap-2 text-center pt-1">
+                    <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-[10px] text-slate-400 block">Produksi / Hari</span>
+                        <span id="stat-daily-prod" class="text-sm font-bold text-emerald-400">0.0 kWh</span>
+                    </div>
+                    <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800">
+                        <span class="text-[10px] text-slate-400 block">Konsumsi / Hari</span>
+                        <span id="stat-daily-load" class="text-sm font-bold text-rose-400">0.0 kWh</span>
+                    </div>
+                </div>
+                <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 flex justify-between items-center text-xs">
+                    <span class="text-slate-400">Penghematan Tagihan PLN:</span>
+                    <span id="stat-savings" class="font-bold text-cyan-300">Rp 0 / bln</span>
+                </div>
+                <div class="bg-slate-900/70 p-2.5 rounded-lg border border-slate-800 flex justify-between items-center text-xs">
+                    <span class="text-slate-400">Reduksi Emisi Karbon:</span>
+                    <span id="stat-co2" class="font-bold text-emerald-300">0 kg CO₂ / thn</span>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- BOTTOM HUD: REAL-TIME ENERGY BALANCE (COLLAPSIBLE) -->
+    <footer class="fixed bottom-3 left-3 right-3 z-20 flex flex-col items-center justify-center pointer-events-none">
+        <div id="panel-bottom-hud" class="glass-panel px-4 py-2.5 rounded-2xl flex flex-wrap items-center justify-center gap-4 sm:gap-6 pointer-events-auto max-w-4xl w-full relative transition-all duration-300">
+            <!-- Total Generation -->
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-emerald-500/20 border border-emerald-500/40 flex items-center justify-center text-emerald-400">
+                    <i class="fa-solid fa-leaf"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Total Produksi</span>
+                    <span id="hud-total-gen" class="text-sm sm:text-base font-display font-bold text-emerald-400">0 W</span>
+                </div>
+            </div>
+
+            <!-- Breakdown Pills (Hidden on very small screens) -->
+            <div class="hidden md:flex items-center gap-2 text-xs">
+                <div class="px-2.5 py-1 rounded-lg bg-amber-500/10 border border-amber-500/30 text-amber-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-sun"></i> <span id="hud-solar">0 W</span>
+                </div>
+                <span class="text-slate-600">+</span>
+                <div class="px-2.5 py-1 rounded-lg bg-sky-500/10 border border-sky-500/30 text-sky-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-wind"></i> <span id="hud-wind">0 W</span>
+                </div>
+                <span class="text-slate-600">+</span>
+                <div class="px-2.5 py-1 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 flex items-center gap-1.5">
+                    <i class="fa-solid fa-shoe-prints"></i> <span id="hud-piezo">0 W</span>
+                </div>
+            </div>
+
+            <div class="h-7 w-px bg-slate-700 hidden sm:block"></div>
+
+            <!-- Total House Load -->
+            <div class="flex items-center gap-2.5">
+                <div class="w-9 h-9 rounded-xl bg-rose-500/20 border border-rose-500/40 flex items-center justify-center text-rose-400">
+                    <i class="fa-solid fa-house-laptop"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Beban Rumah</span>
+                    <span id="hud-total-load" class="text-sm sm:text-base font-display font-bold text-rose-400">0 W</span>
+                </div>
+            </div>
+
+            <div class="h-7 w-px bg-slate-700 hidden sm:block"></div>
+
+            <!-- Net Balance -->
+            <div class="flex items-center gap-2.5">
+                <div id="hud-net-icon-box" class="w-9 h-9 rounded-xl bg-cyan-500/20 border border-cyan-500/40 flex items-center justify-center text-cyan-400">
+                    <i id="hud-net-icon" class="fa-solid fa-scale-balanced"></i>
+                </div>
+                <div>
+                    <span class="text-[10px] uppercase tracking-wider text-slate-400 block">Neraca Daya</span>
+                    <span id="hud-net-power" class="text-sm sm:text-base font-display font-bold text-cyan-300">+0 W</span>
+                </div>
+            </div>
+
+            <!-- Tombol Tutup Panel Bawah -->
+            <button onclick="togglePanelVisibility('bottom')" class="px-2.5 py-1.5 rounded-xl bg-slate-800/90 hover:bg-rose-500/20 text-slate-400 hover:text-rose-300 border border-slate-700 flex items-center gap-1 text-[11px] font-medium transition ml-auto sm:ml-2" title="Sembunyikan Panel Neraca Daya">
+                <i class="fa-solid fa-chevron-down text-[10px]"></i>
+                <span class="hidden sm:inline">Tutup</span>
+            </button>
+        </div>
+
+        <!-- Tombol Munculkan Kembali Panel Bawah (Muncul saat ditutup) -->
+        <button id="restore-bottom-hud" onclick="togglePanelVisibility('bottom')" class="hidden pointer-events-auto glass-panel px-4 py-2 rounded-full text-xs font-bold text-emerald-300 border border-emerald-500/40 hover:bg-slate-800 items-center gap-2 shadow-xl transition">
+            <i class="fa-solid fa-scale-balanced text-cyan-400"></i>
+            <span>Tampilkan Neraca Daya</span>
+            <i class="fa-solid fa-chevron-up text-[10px] text-slate-400"></i>
+        </button>
+    </footer>
+
+    <!-- MODAL: TAMBAH PERALATAN LISTRIK CUSTOM -->
+    <div id="modal-add-appliance" class="fixed inset-0 z-50 bg-slate-950/75 backdrop-blur-sm hidden items-center justify-center p-4">
+        <div class="glass-panel rounded-2xl max-w-md w-full p-5 border border-slate-700 shadow-2xl space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="font-display font-bold text-base text-white flex items-center gap-2">
+                    <i class="fa-solid fa-plug-circle-plus text-cyan-400"></i>
+                    Tambah Peralatan Listrik Custom
+                </h3>
+                <button onclick="closeAddApplianceModal()" class="text-slate-400 hover:text-white">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+
+            <div class="space-y-3 text-xs">
+                <div>
+                    <label class="block text-slate-300 mb-1 font-medium">Nama Peralatan Listrik</label>
+                    <input id="custom-app-name" type="text" placeholder="Contoh: Dispenser Air, PC Gaming, Setrika..." class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-300 mb-1 font-medium">Daya Listrik (Watt)</label>
+                        <input id="custom-app-watt" type="number" min="5" max="5000" value="250" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 mb-1 font-medium">Jumlah Unit</label>
+                        <input id="custom-app-qty" type="number" min="1" max="20" value="1" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-slate-300 mb-1 font-medium">Durasi Pakai (Jam/Hari)</label>
+                        <input id="custom-app-hours" type="number" min="0.5" max="24" step="0.5" value="5" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
+                    </div>
+                    <div>
+                        <label class="block text-slate-300 mb-1 font-medium">Pilih Ikon</label>
+                        <select id="custom-app-icon" class="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:border-cyan-400">
+                            <option value="fa-plug">🔌 Alat Listrik Umum</option>
+                            <option value="fa-computer">🖥️ Komputer / Laptop</option>
+                            <option value="fa-Glass-water">🚰 Dispenser / Pemanas</option>
+                            <option value="fa-fan">🌀 Kipas / Exhaust</option>
+                            <option value="fa-charging-station">⚡ Charger EV / Motor</option>
+                            <option value="fa-blender">🍹 Blender / Alat Dapur</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2">
+                <button onclick="closeAddApplianceModal()" class="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold">
+                    Batal
+                </button>
+                <button onclick="saveCustomAppliance()" class="px-4 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 text-xs font-bold shadow-lg shadow-cyan-500/20">
+                    Simpan & Tambahkan
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: EDUKASI MEKANISME FISIKA, RUMUS & SEJARAH ALAT (SPLIT 2/5 3D & 3/5 TULISAN) -->
+    <div id="modal-device-edu" class="fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-md hidden items-center justify-center p-3 sm:p-6">
+        <div class="glass-panel rounded-2xl max-w-5xl w-full max-h-[92vh] md:h-[82vh] flex flex-col md:flex-row border border-slate-700 shadow-2xl overflow-hidden">
+            
+            <!-- BAGIAN KIRI (2/5): VISUALISASI 3D INTERAKTIF ALAT -->
+            <div class="w-full md:w-2/5 h-64 sm:h-72 md:h-full bg-gradient-to-b from-slate-900 via-slate-950 to-slate-900 relative flex flex-col justify-between border-b md:border-b-0 md:border-r border-slate-700/80 select-none overflow-hidden shrink-0">
+                <!-- Top Overlay Info 3D -->
+                <div class="p-3.5 z-10 flex items-center justify-between pointer-events-none">
+                    <span id="edu-3d-badge" class="px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-lg">
+                        <i class="fa-solid fa-cube"></i> Model 3D Interaktif
+                    </span>
+                    <button onclick="resetEdu3DCamera()" class="pointer-events-auto px-2.5 py-1 rounded-lg bg-slate-800/80 hover:bg-slate-700 text-slate-300 hover:text-white text-[11px] border border-slate-700 transition flex items-center gap-1" title="Reset Sudut Kamera 3D">
+                        <i class="fa-solid fa-rotate"></i> Reset
+                    </button>
+                </div>
+
+                <!-- Container Canvas Three.js Khusus Alat -->
+                <div id="edu-3d-canvas-container" class="absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing"></div>
+
+                <!-- Bottom Overlay Controls & Simulasi Mekanisme Fisika -->
+                <div class="p-3.5 z-10 pointer-events-none space-y-2 bg-gradient-to-t from-slate-950/95 via-slate-950/60 to-transparent">
+                    <div id="edu-3d-caption" class="text-[11px] text-slate-300 bg-slate-900/85 px-3 py-2 rounded-xl border border-slate-700/80 leading-snug">
+                        Visualisasi tumbukan partikel <b>Foton (kuning)</b> yang melepaskan <b>Elektron (biru)</b> pada lapisan silikon.
+                    </div>
+                    <div class="flex items-center justify-between text-[11px] text-slate-400 px-1">
+                        <span class="flex items-center gap-1.5">
+                            <i class="fa-solid fa-hand-pointer text-cyan-400"></i>
+                            <span>Geser untuk putar 3D • Scroll untuk zoom</span>
+                        </span>
+                        <button id="edu-3d-action-btn" onclick="triggerEdu3DSpecialAction()" class="hidden pointer-events-auto px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 font-bold text-[11px] transition">
+                            <i class="fa-solid fa-shoe-prints mr-1"></i> Tekan Ubin
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- BAGIAN KANAN (3/5): PENJELASAN POIN, RUMUS & SEJARAH -->
+            <div class="w-full md:w-3/5 flex flex-col h-full overflow-hidden">
+                <!-- Modal Header & Quick Switcher -->
+                <div class="p-4 border-b border-slate-700/80 flex flex-col gap-3 bg-slate-900/60 shrink-0">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center gap-3">
+                            <div id="edu-header-icon-box" class="w-11 h-11 rounded-xl bg-amber-500/20 border border-amber-500/40 flex items-center justify-center text-amber-400 text-xl shadow-lg shrink-0">
+                                <i id="edu-header-icon" class="fa-solid fa-solar-panel"></i>
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap">
+                                    <h3 id="edu-header-title" class="font-display font-bold text-base sm:text-lg text-white">Panel Surya (Fotovoltaik)</h3>
+                                    <span id="edu-header-live-badge" class="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/30">
+                                        Output: 0 W
+                                    </span>
+                                </div>
+                                <p id="edu-header-subtitle" class="text-xs text-slate-400">Klik salah satu poin di bawah untuk membuka penjelasan lengkapnya</p>
+                            </div>
+                        </div>
+                        <button onclick="closeDeviceEduModal()" class="w-8 h-8 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white flex items-center justify-center transition shrink-0">
+                            <i class="fa-solid fa-xmark"></i>
+                        </button>
+                    </div>
+
+                    <!-- Pilihan Alat Cepat di dalam Modal -->
+                    <div class="flex flex-wrap gap-1.5 pt-1">
+                        <button onclick="openDeviceEduModal('solar')" id="edu-tab-solar" class="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-solar-panel"></i> Panel Surya
+                        </button>
+                        <button onclick="openDeviceEduModal('wind')" id="edu-tab-wind" class="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-fan"></i> Kincir Angin
+                        </button>
+                        <button onclick="openDeviceEduModal('piezo')" id="edu-tab-piezo" class="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-shoe-prints"></i> Lantai Piezoelektrik
+                        </button>
+                        <button onclick="openDeviceEduModal('battery')" id="edu-tab-battery" class="px-3 py-1.5 rounded-xl text-xs font-semibold flex items-center gap-1.5 transition">
+                            <i class="fa-solid fa-car-battery"></i> Baterai & Sistem Rumah
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Daftar Poin Interaktif (Accordion) -->
+                <div id="edu-points-container" class="p-4 overflow-y-auto space-y-2.5 flex-1">
+                    <!-- Diisi secara dinamis melalui JavaScript -->
+                </div>
+
+                <!-- Modal Footer -->
+                <div class="px-4 py-3 border-t border-slate-800 bg-slate-900/70 flex items-center justify-between text-xs shrink-0">
+                    <span class="text-slate-400 flex items-center gap-1.5">
+                        <i class="fa-solid fa-calculator text-cyan-400"></i>
+                        <span>Angka pada poin <b>Perhitungan</b> otomatis mengikuti slider simulasi Anda secara <i>real-time</i>.</span>
+                    </span>
+                    <button onclick="closeDeviceEduModal()" class="px-4 py-1.5 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold transition shrink-0 ml-2">
+                        Tutup
+                    </button>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- APPLICATION & 3D SIMULATION SCRIPT -->
+    <script>
+        /******************************************************************
+         * 1. STATE SIMULASI RUMAH MANDIRI ENERGI
+         ******************************************************************/
+        const state = {
+            timeOfDay: 12.0,       // 0.0 - 24.0
+            autoTime: false,
+            cutawayMode: false,    // Mode intip dalam rumah (transparan atap/dinding)
+            show3DLabels: true,
+            panelsVisible: {
+                left: window.innerWidth >= 1024,
+                right: window.innerWidth >= 1024,
+                weather: true,
+                bottom: true
+            },
+
+            // Kustomisasi Sumber Energi
+            solar: {
+                count: 8,          // 0 - 16 panel
+                wpPerPanel: 400,   // Watt-peak per panel
+                efficiency: 85,    // % kondisi cuaca/efisiensi
+                currentOutput: 0
+            },
+            wind: {
+                count: 2,          // 0 - 4 kincir angin
+                capacityPerUnit: 1000, // Watt per turbin
+                windSpeed: 7.5,    // m/s
+                currentOutput: 0
+            },
+            piezo: {
+                tileCount: 48,     // 8 - 64 ubin piezoelektrik
+                wattPerStep: 12,   // Watt per pijakan
+                activePeople: 3,   // 0 - 6 orang berjalan
+                boostPower: 0,     // Boost saat tombol injak ditekan / diklik
+                currentOutput: 0
+            },
+            battery: {
+                capacityKWh: 10,   // kWh
+                soc: 75.0          // % State of Charge
+            },
+
+            // Daftar Peralatan Listrik di Dalam Rumah (Bisa Di-custom)
+            appliances: [
+                { id: 'lampu', name: 'Lampu Pintar LED (Seluruh Ruang)', icon: 'fa-lightbulb', watt: 15, qty: 8, hours: 10, active: true, room3D: 'lights' },
+                { id: 'ac', name: 'AC Inverter Ruang Tamu & Kamar', icon: 'fa-snowflake', watt: 450, qty: 2, hours: 8, active: true, room3D: 'ac' },
+                { id: 'kulkas', name: 'Kulkas Pintar 2 Pintu', icon: 'fa-temperature-low', watt: 120, qty: 1, hours: 24, active: true, room3D: 'fridge' },
+                { id: 'tv', name: 'Smart TV OLED & Home Theater', icon: 'fa-tv', watt: 140, qty: 1, hours: 6, active: true, room3D: 'tv' },
+                { id: 'kompor', name: 'Kompor Induksi Listrik Dapur', icon: 'fa-fire-burner', watt: 900, qty: 1, hours: 2, active: false, room3D: 'stove' },
+                { id: 'mesincuci', name: 'Mesin Cuci Front Loading', icon: 'fa-shirt', watt: 350, qty: 1, hours: 1.5, active: false, room3D: 'washer' },
+                { id: 'pompa', name: 'Pompa Air Sumur Otomatis', icon: 'fa-faucet-drip', watt: 200, qty: 1, hours: 3, active: true, room3D: 'pump' },
+                { id: 'ev', name: 'Charger Motor / Mobil Listrik', icon: 'fa-charging-station', watt: 1200, qty: 1, hours: 3, active: false, room3D: 'ev' }
+            ]
+        };
+
+        /******************************************************************
+         * 2. VARIABEL GLOBAL THREE.JS & OBJEK 3D
+         ******************************************************************/
+        let scene, camera, renderer;
+        let sunLight, ambientLight, hemiLight;
+        let sunMesh, moonMesh;
+        let interiorLights = [];
+
+        // Camera Orbit State
+        const camOrbit = {
+            theta: 0.72,
+            phi: 1.05,
+            radius: 34,
+            target: new THREE.Vector3(0, 2.5, 0),
+            desiredTheta: 0.72,
+            desiredPhi: 1.05,
+            desiredRadius: 34,
+            desiredTarget: new THREE.Vector3(0, 2.5, 0),
+            isDragging: false,
+            prevX: 0,
+            prevY: 0
+        };
+
+        // 3D Groups for Dynamic Customization
+        let houseGroup, roofGroup, upperWallsGroup;
+        let batteryBoxMesh;
+        let solarPanels3D = [];
+        let windTurbines3D = [];
+        let piezoTiles3D = [];
+        let walkingAvatars3D = [];
+        let appliance3DObjects = {};
+        let wirelessParticles = [];
+        let currentEduDevice = null;
+        let activeEduPointIndex = 0; // Poin yang sedang dibuka di dalam modal
+
+        // Variabel Three.js Khusus Preview 3D di dalam Modal (Kiri 2/5)
+        let eduScene, eduCamera, eduRenderer, eduModelGroup;
+        let eduAnimObjects = {};
+        const eduOrbit = {
+            theta: 0.55,
+            phi: 1.1,
+            radius: 7.5,
+            target: new THREE.Vector3(0, 0, 0),
+            isDragging: false,
+            prevX: 0,
+            prevY: 0,
+            autoRotate: true
+        };
+
+        // Anchor points for 3D floating UI labels
+        const anchors3D = {
+            solar: new THREE.Vector3(0, 8.8, 0),
+            wind: new THREE.Vector3(-12, 9.5, -4),
+            piezo: new THREE.Vector3(0, 0.6, 8.5),
+            house: new THREE.Vector3(0, 4.5, 0)
+        };
+
+        /******************************************************************
+         * 3. INISIALISASI SCENE THREE.JS
+         ******************************************************************/
+        function initThreeJS() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x0f172a);
+            scene.fog = new THREE.FogExp2(0x0f172a, 0.008);
+
+            camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 300);
+
+            renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            container.appendChild(renderer.domElement);
+
+            // Pencahayaan (Lighting)
+            hemiLight = new THREE.HemisphereLight(0xe0f2fe, 0x1e293b, 0.65);
+            scene.add(hemiLight);
+
+            ambientLight = new THREE.AmbientLight(0xffffff, 0.25);
+            scene.add(ambientLight);
+
+            sunLight = new THREE.DirectionalLight(0xfffbeb, 1.2);
+            sunLight.position.set(25, 35, 20);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 5;
+            sunLight.shadow.camera.far = 90;
+            const d = 26;
+            sunLight.shadow.camera.left = -d;
+            sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d;
+            sunLight.shadow.camera.bottom = -d;
+            sunLight.shadow.bias = -0.0005;
+            scene.add(sunLight);
+
+            // Matahari & Bulan 3D
+            const sunGeo = new THREE.SphereGeometry(2.2, 24, 24);
+            const sunMat = new THREE.MeshBasicMaterial({ color: 0xfde047 });
+            sunMesh = new THREE.Mesh(sunGeo, sunMat);
+            scene.add(sunMesh);
+
+            const moonGeo = new THREE.SphereGeometry(1.6, 24, 24);
+            const moonMat = new THREE.MeshBasicMaterial({ color: 0xe2e8f0 });
+            moonMesh = new THREE.Mesh(moonGeo, moonMat);
+            scene.add(moonMesh);
+
+            // Bangun Lingkungan & Rumah 3D
+            buildEnvironment3D();
+            buildSmartHouse3D();
+            buildSolarPanels3D();
+            buildWindTurbines3D();
+            buildPiezoFloor3D();
+            buildWalkingAvatars3D();
+            buildInteriorAppliances3D();
+            buildWirelessEnergyAura3D();
+
+            // Event Listeners Mouse & Touch untuk Orbit Kamera
+            setupCameraControls(renderer.domElement);
+
+            window.addEventListener('resize', onWindowResize);
+        }
+
+        /******************************************************************
+         * 4. PEMBANGUNAN OBJEK 3D (RUMAH, PANEL SURYA, KINCIR, PIEZO, INTERIOR)
+         ******************************************************************/
+        function buildEnvironment3D() {
+            // Tanah Utama / Pulau Rumput Modern
+            const groundGeo = new THREE.CylinderGeometry(28, 30, 1.5, 48);
+            const groundMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.9 });
+            const ground = new THREE.Mesh(groundGeo, groundMat);
+            ground.position.y = -0.75;
+            ground.receiveShadow = true;
+            scene.add(ground);
+
+            // Ring Pinggiran Pulau
+            const rimGeo = new THREE.CylinderGeometry(28.3, 28.3, 0.3, 48);
+            const rimMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.7 });
+            const rim = new THREE.Mesh(rimGeo, rimMat);
+            rim.position.y = -0.1;
+            scene.add(rim);
+
+            // Dek Kayu / Halaman Rumah
+            const deckGeo = new THREE.BoxGeometry(18, 0.25, 15);
+            const deckMat = new THREE.MeshStandardMaterial({ color: 0x475569, roughness: 0.8 });
+            const deck = new THREE.Mesh(deckGeo, deckMat);
+            deck.position.set(0, 0.12, 0);
+            deck.receiveShadow = true;
+            scene.add(deck);
+
+            // Pohon Hias Low-Poly di Sekitar Rumah
+            const treePositions = [
+                [14, -8], [16, 4], [-16, 8], [12, 12], [-14, -12], [6, -14]
+            ];
+            treePositions.forEach(([tx, tz], idx) => {
+                const treeGroup = new THREE.Group();
+                const trunk = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.25, 0.4, 2.2, 8),
+                    new THREE.MeshStandardMaterial({ color: 0x78350f, roughness: 0.9 })
+                );
+                trunk.position.y = 1.1;
+                trunk.castShadow = true;
+                treeGroup.add(trunk);
+
+                const leavesMat = new THREE.MeshStandardMaterial({
+                    color: idx % 2 === 0 ? 0x16a34a : 0x059669,
+                    roughness: 0.8
+                });
+                const cone1 = new THREE.Mesh(new THREE.ConeGeometry(1.8, 3.2, 8), leavesMat);
+                cone1.position.y = 3.2;
+                cone1.castShadow = true;
+                treeGroup.add(cone1);
+
+                const cone2 = new THREE.Mesh(new THREE.ConeGeometry(1.3, 2.5, 8), leavesMat);
+                cone2.position.y = 4.6;
+                cone2.castShadow = true;
+                treeGroup.add(cone2);
+
+                treeGroup.position.set(tx, 0, tz);
+                scene.add(treeGroup);
+            });
+        }
+
+        function buildSmartHouse3D() {
+            houseGroup = new THREE.Group();
+
+            // Lantai Dasar Rumah (Interior)
+            const floorGeo = new THREE.BoxGeometry(14, 0.3, 10);
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, roughness: 0.6 });
+            const floor = new THREE.Mesh(floorGeo, floorMat);
+            floor.position.set(0, 0.3, -1);
+            floor.receiveShadow = true;
+            houseGroup.add(floor);
+
+            // Dinding Bawah (Tetap terlihat saat mode intip dalam rumah)
+            const lowerWallMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 });
+            const woodAccentMat = new THREE.MeshStandardMaterial({ color: 0x9a3412, roughness: 0.7 });
+
+            // Dinding Belakang & Samping
+            upperWallsGroup = new THREE.Group();
+
+            const backWall = new THREE.Mesh(new THREE.BoxGeometry(14, 5, 0.35), lowerWallMat.clone());
+            backWall.position.set(0, 2.8, -5.85);
+            backWall.castShadow = true;
+            backWall.receiveShadow = true;
+            upperWallsGroup.add(backWall);
+
+            const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.35, 5, 10), lowerWallMat.clone());
+            leftWall.position.set(-6.85, 2.8, -1);
+            leftWall.castShadow = true;
+            leftWall.receiveShadow = true;
+            upperWallsGroup.add(leftWall);
+
+            const rightWall = new THREE.Mesh(new THREE.BoxGeometry(0.35, 5, 10), lowerWallMat.clone());
+            rightWall.position.set(6.85, 2.8, -1);
+            rightWall.castShadow = true;
+            rightWall.receiveShadow = true;
+            upperWallsGroup.add(rightWall);
+
+            // Dinding Depan dengan Jendela Kaca Besar
+            const frontLeft = new THREE.Mesh(new THREE.BoxGeometry(4.2, 5, 0.35), woodAccentMat.clone());
+            frontLeft.position.set(-4.9, 2.8, 3.85);
+            frontLeft.castShadow = true;
+            upperWallsGroup.add(frontLeft);
+
+            const frontRight = new THREE.Mesh(new THREE.BoxGeometry(4.2, 5, 0.35), lowerWallMat.clone());
+            frontRight.position.set(4.9, 2.8, 3.85);
+            frontRight.castShadow = true;
+            upperWallsGroup.add(frontRight);
+
+            // Kaca Jendela Panorama Depan
+            const glassMat = new THREE.MeshStandardMaterial({
+                color: 0x38bdf8,
+                transparent: true,
+                opacity: 0.32,
+                roughness: 0.1,
+                metalness: 0.3
+            });
+            const frontGlass = new THREE.Mesh(new THREE.BoxGeometry(5.6, 4.2, 0.12), glassMat);
+            frontGlass.position.set(0, 2.6, 3.85);
+            upperWallsGroup.add(frontGlass);
+
+            // Sekat Ruangan Dalam Rumah (Ruang Tamu, Dapur, Kamar, Ruang Cuci)
+            const partitionMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.6 });
+            const divider1 = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2.6, 9.5), partitionMat);
+            divider1.position.set(1.5, 1.6, -1);
+            houseGroup.add(divider1);
+
+            const divider2 = new THREE.Mesh(new THREE.BoxGeometry(8, 2.6, 0.2), partitionMat);
+            divider2.position.set(-2.5, 1.6, -1.5);
+            houseGroup.add(divider2);
+
+            houseGroup.add(upperWallsGroup);
+
+            // ATAP RUMAH (Gable Roof tempat Panel Surya dipasang)
+            roofGroup = new THREE.Group();
+            const roofMat = new THREE.MeshStandardMaterial({
+                color: 0x1e293b,
+                roughness: 0.6,
+                metalness: 0.2
+            });
+
+            // Sisi Atap Depan (Miring menghadap matahari)
+            const roofFront = new THREE.Mesh(new THREE.BoxGeometry(15.2, 0.35, 6.8), roofMat.clone());
+            roofFront.position.set(0, 6.7, 1.6);
+            roofFront.rotation.x = 0.42;
+            roofFront.castShadow = true;
+            roofFront.receiveShadow = true;
+            roofGroup.add(roofFront);
+
+            // Sisi Atap Belakang
+            const roofBack = new THREE.Mesh(new THREE.BoxGeometry(15.2, 0.35, 6.8), roofMat.clone());
+            roofBack.position.set(0, 6.7, -3.6);
+            roofBack.rotation.x = -0.42;
+            roofBack.castShadow = true;
+            roofBack.receiveShadow = true;
+            roofGroup.add(roofBack);
+
+            houseGroup.add(roofGroup);
+
+            // Unit Bank Baterai Dinding Samping (Powerwall style)
+            const batteryBox = new THREE.Mesh(
+                new THREE.BoxGeometry(0.45, 2.2, 1.4),
+                new THREE.MeshStandardMaterial({ color: 0x0f172a, metalness: 0.5, roughness: 0.3 })
+            );
+            batteryBox.position.set(7.1, 1.8, -1);
+            batteryBox.userData.deviceType = 'battery';
+            batteryBoxMesh = batteryBox;
+            houseGroup.add(batteryBox);
+
+            const batteryGlow = new THREE.Mesh(
+                new THREE.BoxGeometry(0.5, 1.6, 0.18),
+                new THREE.MeshBasicMaterial({ color: 0xa855f7 })
+            );
+            batteryGlow.position.set(7.12, 1.8, -1);
+            batteryGlow.userData.deviceType = 'battery';
+            houseGroup.add(batteryGlow);
+
+            scene.add(houseGroup);
+        }
+
+        function buildSolarPanels3D() {
+            // Buat 16 slot panel surya di atap depan & belakang (2 baris x 4 kolom di depan, 2 baris x 4 kolom di belakang)
+            solarPanels3D = [];
+
+            const frameMat = new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.7, roughness: 0.3 });
+            const cellMat = new THREE.MeshStandardMaterial({
+                color: 0x0284c7,
+                emissive: 0x0369a1,
+                emissiveIntensity: 0.25,
+                metalness: 0.85,
+                roughness: 0.15
+            });
+
+            // 8 Panel di lereng atap depan, 8 Panel di lereng atap belakang
+            for (let side = 0; side < 2; side++) {
+                for (let row = 0; row < 2; row++) {
+                    for (let col = 0; col < 4; col++) {
+                        const panelGroup = new THREE.Group();
+
+                        const frame = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.12, 2.1), frameMat);
+                        panelGroup.add(frame);
+
+                        const cell = new THREE.Mesh(new THREE.BoxGeometry(2.95, 0.14, 1.95), cellMat.clone());
+                        panelGroup.add(cell);
+
+                        // Grid garis sel surya
+                        const gridBar = new THREE.Mesh(new THREE.BoxGeometry(2.96, 0.15, 0.04), frameMat);
+                        panelGroup.add(gridBar);
+
+                        const xPos = -4.95 + col * 3.3;
+                        if (side === 0) {
+                            // Lereng depan
+                            const zOff = 0.4 + row * 2.4;
+                            const yOff = 7.45 - row * 1.05;
+                            panelGroup.position.set(xPos, yOff, zOff);
+                            panelGroup.rotation.x = 0.42;
+                        } else {
+                            // Lereng belakang
+                            const zOff = -2.4 - row * 2.4;
+                            const yOff = 7.45 - row * 1.05;
+                            panelGroup.position.set(xPos, yOff, zOff);
+                            panelGroup.rotation.x = -0.42;
+                        }
+
+                        panelGroup.userData.cellMesh = cell;
+                        scene.add(panelGroup);
+                        solarPanels3D.push(panelGroup);
+                    }
+                }
+            }
+        }
+
+        function buildWindTurbines3D() {
+            windTurbines3D = [];
+            const positions = [
+                [-12, -4],
+                [-12, 4],
+                [-16, 0],
+                [-10, -10]
+            ];
+
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.4, roughness: 0.3 });
+            const bladeMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.2, roughness: 0.3 });
+            const hubMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.3 });
+
+            positions.forEach(([wx, wz]) => {
+                const turbineGroup = new THREE.Group();
+
+                // Fondasi
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(0.8, 1.0, 0.4, 16), poleMat);
+                base.position.y = 0.2;
+                turbineGroup.add(base);
+
+                // Tiang Menara
+                const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.22, 0.45, 9.5, 16), poleMat);
+                tower.position.y = 4.9;
+                tower.castShadow = true;
+                turbineGroup.add(tower);
+
+                // Nacelle / Rumah Generator
+                const nacelle = new THREE.Mesh(new THREE.BoxGeometry(0.8, 0.7, 1.6), poleMat);
+                nacelle.position.set(0, 9.7, 0.2);
+                turbineGroup.add(nacelle);
+
+                // Rotor Group (Berputar sesuai kecepatan angin)
+                const rotorGroup = new THREE.Group();
+                rotorGroup.position.set(0, 9.7, 1.05);
+
+                const hub = new THREE.Mesh(new THREE.SphereGeometry(0.38, 16, 16), hubMat);
+                rotorGroup.add(hub);
+
+                // 3 Bilah Kincir Angin
+                for (let i = 0; i < 3; i++) {
+                    const bladePivot = new THREE.Group();
+                    bladePivot.rotation.z = (i * Math.PI * 2) / 3;
+
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.32, 3.4, 0.08), bladeMat);
+                    blade.position.y = 1.75;
+                    blade.rotation.y = 0.22;
+                    blade.castShadow = true;
+                    bladePivot.add(blade);
+
+                    rotorGroup.add(bladePivot);
+                }
+
+                turbineGroup.add(rotorGroup);
+                turbineGroup.position.set(wx, 0, wz);
+                turbineGroup.rotation.y = 0.35;
+                turbineGroup.userData.rotor = rotorGroup;
+
+                scene.add(turbineGroup);
+                windTurbines3D.push(turbineGroup);
+            });
+        }
+
+        function buildPiezoFloor3D() {
+            // Area Lantai Piezoelektrik di Teras & Jalur Masuk Utama (8 kolom x 8 baris = 64 ubin)
+            piezoTiles3D = [];
+            const startX = -4.2;
+            const startZ = 4.6;
+            const spacing = 1.2;
+
+            const baseMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.4 });
+
+            for (let row = 0; row < 8; row++) {
+                for (let col = 0; col < 8; col++) {
+                    const tileGroup = new THREE.Group();
+
+                    const pad = new THREE.Mesh(new THREE.BoxGeometry(1.08, 0.14, 1.08), baseMat);
+                    tileGroup.add(pad);
+
+                    const glowMat = new THREE.MeshStandardMaterial({
+                        color: 0x10b981,
+                        emissive: 0x059669,
+                        emissiveIntensity: 0.2,
+                        roughness: 0.2
+                    });
+                    const topPlate = new THREE.Mesh(new THREE.BoxGeometry(0.92, 0.16, 0.92), glowMat);
+                    topPlate.position.y = 0.02;
+                    tileGroup.add(topPlate);
+
+                    const tx = startX + col * spacing;
+                    const tz = startZ + row * spacing;
+                    tileGroup.position.set(tx, 0.22, tz);
+
+                    tileGroup.userData = {
+                        topPlate,
+                        glowEnergy: 0,
+                        baseY: 0.22
+                    };
+
+                    scene.add(tileGroup);
+                    piezoTiles3D.push(tileGroup);
+                }
+            }
+        }
+
+        function buildWalkingAvatars3D() {
+            // Buat 6 Karakter Penghuni Stylized 3D yang berjalan di atas lantai piezoelektrik
+            walkingAvatars3D = [];
+            const colors = [0x38bdf8, 0xf43f5e, 0xfbbf24, 0xa855f7, 0x34d399, 0xf97316];
+
+            for (let i = 0; i < 6; i++) {
+                const avatar = new THREE.Group();
+
+                // Badan
+                const bodyMat = new THREE.MeshStandardMaterial({ color: colors[i], roughness: 0.4 });
+                const body = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.35, 1.1, 12), bodyMat);
+                body.position.y = 0.95;
+                body.castShadow = true;
+                avatar.add(body);
+
+                // Kepala
+                const headMat = new THREE.MeshStandardMaterial({ color: 0xfde68a, roughness: 0.4 });
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.28, 16, 16), headMat);
+                head.position.y = 1.78;
+                head.castShadow = true;
+                avatar.add(head);
+
+                avatar.userData = {
+                    angle: (i * Math.PI) / 3,
+                    speed: 1.2 + (i % 3) * 0.35,
+                    radiusX: 3.2 - (i % 2) * 1.1,
+                    radiusZ: 2.8 - (i % 3) * 0.6,
+                    centerX: 0,
+                    centerZ: 8.5,
+                    stepTimer: 0
+                };
+
+                scene.add(avatar);
+                walkingAvatars3D.push(avatar);
+            }
+        }
+
+        function buildInteriorAppliances3D() {
+            // Objek 3D Peralatan Listrik di Dalam Rumah (Menyala/Beranimasi saat ON)
+            appliance3DObjects = {};
+
+            // 1. Lampu Pintar LED (PointLights di 3 Ruangan + Bola Lampu)
+            const roomCoords = [
+                [-2.5, 4.4, 1.2],  // Ruang Tamu
+                [-2.5, 4.4, -3.5], // Dapur
+                [4.2, 4.4, -1.0]   // Kamar Tidur
+            ];
+            appliance3DObjects.lights = [];
+            roomCoords.forEach(([lx, ly, lz]) => {
+                const pLight = new THREE.PointLight(0xfef08a, 1.1, 11);
+                pLight.position.set(lx, ly, lz);
+                scene.add(pLight);
+                interiorLights.push(pLight);
+
+                const bulb = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.28, 12, 12),
+                    new THREE.MeshBasicMaterial({ color: 0xfef08a })
+                );
+                bulb.position.set(lx, ly + 0.2, lz);
+                scene.add(bulb);
+                appliance3DObjects.lights.push({ light: pLight, bulb });
+            });
+
+            // 2. Smart TV di Ruang Tamu
+            const tvGroup = new THREE.Group();
+            const tvStand = new THREE.Mesh(
+                new THREE.BoxGeometry(2.6, 0.6, 0.7),
+                new THREE.MeshStandardMaterial({ color: 0x334155 })
+            );
+            tvStand.position.set(-2.5, 0.75, -1.1);
+            tvGroup.add(tvStand);
+
+            const tvScreenMat = new THREE.MeshStandardMaterial({
+                color: 0x0284c7,
+                emissive: 0x38bdf8,
+                emissiveIntensity: 0.9
+            });
+            const tvScreen = new THREE.Mesh(new THREE.BoxGeometry(2.2, 1.25, 0.12), tvScreenMat);
+            tvScreen.position.set(-2.5, 1.75, -1.1);
+            tvGroup.add(tvScreen);
+
+            // Sofa Ruang Tamu
+            const sofa = new THREE.Mesh(
+                new THREE.BoxGeometry(2.8, 0.75, 1.1),
+                new THREE.MeshStandardMaterial({ color: 0x475569 })
+            );
+            sofa.position.set(-2.5, 0.8, 2.1);
+            tvGroup.add(sofa);
+
+            scene.add(tvGroup);
+            appliance3DObjects.tv = { screen: tvScreen };
+
+            // 3. AC Inverter di Dinding
+            const acBody = new THREE.Mesh(
+                new THREE.BoxGeometry(1.8, 0.45, 0.4),
+                new THREE.MeshStandardMaterial({ color: 0xf8fafc })
+            );
+            acBody.position.set(-6.4, 3.9, 1.0);
+            acBody.rotation.y = Math.PI / 2;
+            scene.add(acBody);
+
+            const acLed = new THREE.Mesh(
+                new THREE.BoxGeometry(1.4, 0.08, 0.44),
+                new THREE.MeshBasicMaterial({ color: 0x22d3ee })
+            );
+            acLed.position.set(-6.38, 3.78, 1.0);
+            acLed.rotation.y = Math.PI / 2;
+            scene.add(acLed);
+            appliance3DObjects.ac = { led: acLed };
+
+            // 4. Kulkas 2 Pintu di Dapur
+            const fridge = new THREE.Mesh(
+                new THREE.BoxGeometry(1.2, 2.3, 1.1),
+                new THREE.MeshStandardMaterial({ color: 0x94a3b8, metalness: 0.5, roughness: 0.3 })
+            );
+            fridge.position.set(-5.8, 1.6, -4.8);
+            scene.add(fridge);
+
+            const fridgePanel = new THREE.Mesh(
+                new THREE.BoxGeometry(0.35, 0.5, 1.14),
+                new THREE.MeshBasicMaterial({ color: 0x34d399 })
+            );
+            fridgePanel.position.set(-5.5, 2.0, -4.8);
+            scene.add(fridgePanel);
+            appliance3DObjects.fridge = { panel: fridgePanel };
+
+            // 5. Kompor Induksi di Meja Dapur
+            const kitchenCounter = new THREE.Mesh(
+                new THREE.BoxGeometry(3.4, 0.9, 1.1),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b })
+            );
+            kitchenCounter.position.set(-2.5, 0.9, -4.9);
+            scene.add(kitchenCounter);
+
+            const stoveRing = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.45, 0.45, 0.06, 24),
+                new THREE.MeshBasicMaterial({ color: 0xf43f5e })
+            );
+            stoveRing.position.set(-2.5, 1.38, -4.9);
+            scene.add(stoveRing);
+            appliance3DObjects.stove = { burner: stoveRing };
+
+            // 6. Mesin Cuci
+            const washer = new THREE.Mesh(
+                new THREE.BoxGeometry(1.0, 1.15, 0.95),
+                new THREE.MeshStandardMaterial({ color: 0xe2e8f0 })
+            );
+            washer.position.set(0.5, 1.0, -4.8);
+            scene.add(washer);
+
+            const washerDrum = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.32, 0.32, 0.98, 20),
+                new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+            );
+            washerDrum.rotation.x = Math.PI / 2;
+            washerDrum.position.set(0.5, 1.05, -4.8);
+            scene.add(washerDrum);
+            appliance3DObjects.washer = { drum: washerDrum };
+
+            // 7. Tempat Tidur di Kamar Kanan
+            const bed = new THREE.Mesh(
+                new THREE.BoxGeometry(3.0, 0.65, 3.6),
+                new THREE.MeshStandardMaterial({ color: 0x3b82f6 })
+            );
+            bed.position.set(4.5, 0.75, -2.5);
+            scene.add(bed);
+
+            // 8. Charger Kendaraan Listrik (EV Station) di Samping Depan
+            const evStand = new THREE.Mesh(
+                new THREE.BoxGeometry(0.6, 1.7, 0.45),
+                new THREE.MeshStandardMaterial({ color: 0x1e293b })
+            );
+            evStand.position.set(7.6, 1.1, 3.2);
+            scene.add(evStand);
+
+            const evGlow = new THREE.Mesh(
+                new THREE.BoxGeometry(0.42, 0.8, 0.5),
+                new THREE.MeshBasicMaterial({ color: 0x22d3ee })
+            );
+            evGlow.position.set(7.6, 1.3, 3.2);
+            scene.add(evGlow);
+            appliance3DObjects.ev = { glow: evGlow };
+        }
+
+        function buildWirelessEnergyAura3D() {
+            // Partikel Energi Melayang (Tanpa kabel, menunjukkan aliran energi bersih di sekitar rumah)
+            wirelessParticles = [];
+            const geo = new THREE.SphereGeometry(0.11, 8, 8);
+
+            for (let i = 0; i < 30; i++) {
+                const mat = new THREE.MeshBasicMaterial({
+                    color: i % 3 === 0 ? 0xfbbf24 : (i % 3 === 1 ? 0x38bdf8 : 0x34d399),
+                    transparent: true,
+                    opacity: 0.75
+                });
+                const p = new THREE.Mesh(geo, mat);
+                p.userData = {
+                    phase: Math.random() * Math.PI * 2,
+                    speed: 0.4 + Math.random() * 0.6,
+                    radius: 5 + Math.random() * 7,
+                    baseY: 1.5 + Math.random() * 6
+                };
+                scene.add(p);
+                wirelessParticles.push(p);
+            }
+        }
+
+        /******************************************************************
+         * 5. PERHITUNGAN FISIKA & ENERGI REAL-TIME
+         ******************************************************************/
+        function calculateEnergySimulation(dt) {
+            // 1. Faktor Matahari berdasarkan Jam (06:00 - 18:00)
+            let sunFactor = 0;
+            if (state.timeOfDay >= 6 && state.timeOfDay <= 18) {
+                sunFactor = Math.sin(((state.timeOfDay - 6) / 12) * Math.PI);
+            }
+
+            // Output Panel Surya (Watt)
+            const solarMax = state.solar.count * state.solar.wpPerPanel;
+            state.solar.currentOutput = Math.round(solarMax * sunFactor * (state.solar.efficiency / 100));
+
+            // 2. Output Kincir Angin (Kurva Daya Turbin berdasarkan kecepatan angin)
+            const v = state.wind.windSpeed;
+            let windFactor = 0;
+            if (v >= 2.5) {
+                windFactor = Math.min(1, Math.pow((v - 2.0) / 10.0, 2.2));
+            }
+            const windMax = state.wind.count * state.wind.capacityPerUnit;
+            state.wind.currentOutput = Math.round(windMax * windFactor);
+
+            // 3. Output Lantai Piezoelektrik (Berdasarkan jumlah ubin, orang berjalan, dan boost injakan)
+            if (state.piezo.boostPower > 0) {
+                state.piezo.boostPower = Math.max(0, state.piezo.boostPower - dt * 120);
+            }
+            const tileCoverageFactor = state.piezo.tileCount / 48;
+            const stepsPerSec = state.piezo.activePeople * 2.1;
+            const basePiezo = stepsPerSec * state.piezo.wattPerStep * tileCoverageFactor;
+            state.piezo.currentOutput = Math.round(basePiezo + state.piezo.boostPower);
+
+            // 4. Total Produksi & Total Beban Peralatan Rumah
+            const totalGen = state.solar.currentOutput + state.wind.currentOutput + state.piezo.currentOutput;
+            let totalLoad = 0;
+            state.appliances.forEach(app => {
+                if (app.active) {
+                    totalLoad += app.watt * app.qty;
+                }
+            });
+
+            // 5. Neraca Energi & Pengisian/Pengosongan Baterai
+            const netPower = totalGen - totalLoad; // Watt
+            const capWh = state.battery.capacityKWh * 1000;
+            // Percepat sedikit simulasi pengisian baterai agar perubahan terasa responsif
+            const deltaPercent = ((netPower * dt * 0.4) / capWh) * 100;
+            state.battery.soc = Math.max(0, Math.min(100, state.battery.soc + deltaPercent));
+
+            updateDashboardUI(totalGen, totalLoad, netPower, solarMax, windMax);
+        }
+
+        /******************************************************************
+         * 6. UPDATE UI & SINKRONISASI OBJEK 3D
+         ******************************************************************/
+        function updateEnergyConfig() {
+            state.solar.count = parseInt(document.getElementById('input-solar-count').value);
+            state.solar.wpPerPanel = parseInt(document.getElementById('input-solar-wp').value);
+            state.solar.efficiency = parseInt(document.getElementById('input-solar-eff').value);
+
+            state.wind.count = parseInt(document.getElementById('input-wind-count').value);
+            state.wind.capacityPerUnit = parseInt(document.getElementById('input-wind-cap').value);
+            state.wind.windSpeed = parseFloat(document.getElementById('input-wind-speed').value);
+
+            state.piezo.tileCount = parseInt(document.getElementById('input-piezo-count').value);
+            state.piezo.wattPerStep = parseInt(document.getElementById('input-piezo-watt').value);
+            state.piezo.activePeople = parseInt(document.getElementById('input-piezo-people').value);
+
+            state.battery.capacityKWh = parseInt(document.getElementById('input-battery-cap').value);
+
+            // Update Label Angka Slider
+            document.getElementById('val-solar-count').textContent = state.solar.count;
+            document.getElementById('val-solar-wp').textContent = state.solar.wpPerPanel;
+            document.getElementById('val-solar-eff').textContent = state.solar.efficiency;
+
+            document.getElementById('val-wind-count').textContent = state.wind.count;
+            document.getElementById('val-wind-cap').textContent = state.wind.capacityPerUnit;
+            document.getElementById('val-wind-speed').textContent = state.wind.windSpeed.toFixed(1);
+
+            document.getElementById('val-piezo-count').textContent = state.piezo.tileCount;
+            document.getElementById('val-piezo-watt').textContent = state.piezo.wattPerStep;
+            document.getElementById('val-piezo-people').textContent = state.piezo.activePeople;
+
+            document.getElementById('val-battery-cap').textContent = state.battery.capacityKWh;
+            document.getElementById('ui-piezo-tiles').textContent = `${state.piezo.tileCount} Ubin Aktif`;
+
+            sync3DSceneWithConfig();
+        }
+
+        function sync3DSceneWithConfig() {
+            // 1. Tampilkan/Sembunyikan Panel Surya 3D sesuai jumlah
+            solarPanels3D.forEach((panel, idx) => {
+                panel.visible = idx < state.solar.count;
+            });
+
+            // 2. Tampilkan/Sembunyikan Kincir Angin 3D sesuai jumlah
+            windTurbines3D.forEach((turbine, idx) => {
+                turbine.visible = idx < state.wind.count;
+            });
+
+            // 3. Tampilkan/Sembunyikan Ubin Lantai Piezoelektrik 3D
+            piezoTiles3D.forEach((tile, idx) => {
+                tile.visible = idx < state.piezo.tileCount;
+            });
+
+            // 4. Tampilkan/Sembunyikan Karakter Penghuni yang Berjalan
+            walkingAvatars3D.forEach((avatar, idx) => {
+                avatar.visible = idx < state.piezo.activePeople;
+            });
+
+            // 5. Sinkronisasi Peralatan Listrik di Dalam Rumah
+            state.appliances.forEach(app => {
+                if (app.room3D === 'lights' && appliance3DObjects.lights) {
+                    appliance3DObjects.lights.forEach(item => {
+                        item.light.intensity = app.active ? 1.15 : 0;
+                        item.bulb.material.color.setHex(app.active ? 0xfef08a : 0x475569);
+                    });
+                } else if (app.room3D === 'tv' && appliance3DObjects.tv) {
+                    appliance3DObjects.tv.screen.material.emissiveIntensity = app.active ? 0.9 : 0;
+                    appliance3DObjects.tv.screen.material.color.setHex(app.active ? 0x0284c7 : 0x0f172a);
+                } else if (app.room3D === 'ac' && appliance3DObjects.ac) {
+                    appliance3DObjects.ac.led.material.color.setHex(app.active ? 0x22d3ee : 0x334155);
+                } else if (app.room3D === 'fridge' && appliance3DObjects.fridge) {
+                    appliance3DObjects.fridge.panel.material.color.setHex(app.active ? 0x34d399 : 0x334155);
+                } else if (app.room3D === 'stove' && appliance3DObjects.stove) {
+                    appliance3DObjects.stove.burner.material.color.setHex(app.active ? 0xf43f5e : 0x334155);
+                } else if (app.room3D === 'washer' && appliance3DObjects.washer) {
+                    appliance3DObjects.washer.drum.material.color.setHex(app.active ? 0x38bdf8 : 0x334155);
+                } else if (app.room3D === 'ev' && appliance3DObjects.ev) {
+                    appliance3DObjects.ev.glow.material.color.setHex(app.active ? 0x22d3ee : 0x334155);
+                }
+            });
+        }
+
+        function updateDashboardUI(totalGen, totalLoad, netPower, solarMax, windMax) {
+            // Output per Sumber
+            document.getElementById('ui-solar-out').textContent = `${state.solar.currentOutput.toLocaleString('id-ID')} W`;
+            document.getElementById('ui-solar-max').textContent = `Maks: ${solarMax.toLocaleString('id-ID')} Wp`;
+
+            document.getElementById('ui-wind-out').textContent = `${state.wind.currentOutput.toLocaleString('id-ID')} W`;
+            document.getElementById('ui-wind-max').textContent = `Maks: ${windMax.toLocaleString('id-ID')} W`;
+
+            document.getElementById('ui-piezo-out').textContent = `${state.piezo.currentOutput.toLocaleString('id-ID')} W`;
+
+            // Baterai
+            const socRound = Math.round(state.battery.soc);
+            document.getElementById('ui-battery-pct').textContent = `${socRound}%`;
+            document.getElementById('ui-battery-bar').style.width = `${socRound}%`;
+
+            const batStatusEl = document.getElementById('ui-battery-status');
+            if (netPower > 5) {
+                batStatusEl.textContent = socRound >= 100
+                    ? `Baterai Penuh (Surplus +${netPower.toLocaleString('id-ID')} W)`
+                    : `Mengisi Baterai (+${netPower.toLocaleString('id-ID')} W)`;
+                batStatusEl.className = 'text-[11px] text-emerald-300 bg-emerald-950/50 px-2.5 py-1.5 rounded-lg border border-emerald-800/50';
+            } else if (netPower < -5) {
+                batStatusEl.textContent = socRound > 0
+                    ? `Menyuplai Rumah (${netPower.toLocaleString('id-ID')} W dari baterai)`
+                    : ` Peringatan: Baterai Habis & Defisit Daya!`;
+                batStatusEl.className = 'text-[11px] text-amber-300 bg-amber-950/50 px-2.5 py-1.5 rounded-lg border border-amber-800/50';
+            } else {
+                batStatusEl.textContent = 'Seimbang (Produksi = Konsumsi)';
+                batStatusEl.className = 'text-[11px] text-slate-300 bg-slate-900/60 px-2.5 py-1.5 rounded-lg border border-slate-800';
+            }
+
+            // Bottom HUD
+            document.getElementById('hud-total-gen').textContent = `${totalGen.toLocaleString('id-ID')} W`;
+            document.getElementById('hud-solar').textContent = `${state.solar.currentOutput} W`;
+            document.getElementById('hud-wind').textContent = `${state.wind.currentOutput} W`;
+            document.getElementById('hud-piezo').textContent = `${state.piezo.currentOutput} W`;
+            document.getElementById('hud-total-load').textContent = `${totalLoad.toLocaleString('id-ID')} W`;
+            document.getElementById('ui-total-load').textContent = `${totalLoad.toLocaleString('id-ID')} Watt`;
+
+            const netSign = netPower >= 0 ? '+' : '';
+            const netEl = document.getElementById('hud-net-power');
+            netEl.textContent = `${netSign}${netPower.toLocaleString('id-ID')} W`;
+
+            // Status Badge Atas
+            const badge = document.getElementById('status-badge');
+            if (netPower >= 0) {
+                badge.textContent = 'Mandiri (Surplus)';
+                badge.className = 'px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30';
+                netEl.className = 'text-sm sm:text-base font-display font-bold text-emerald-400';
+            } else if (state.battery.soc > 5) {
+                badge.textContent = 'Ditopang Baterai';
+                badge.className = 'px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/30';
+                netEl.className = 'text-sm sm:text-base font-display font-bold text-amber-400';
+            } else {
+                badge.textContent = 'Defisit Energi';
+                badge.className = 'px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider rounded-full bg-rose-500/20 text-rose-300 border border-rose-500/30';
+                netEl.className = 'text-sm sm:text-base font-display font-bold text-rose-400';
+            }
+
+            // Update Floating 3D Labels
+            document.getElementById('label-solar-val').textContent = `Surya: ${state.solar.currentOutput} W`;
+            document.getElementById('label-wind-val').textContent = `Angin: ${state.wind.currentOutput} W`;
+            document.getElementById('label-piezo-val').textContent = `Piezo: ${state.piezo.currentOutput} W`;
+            document.getElementById('label-house-val').textContent = `Beban: ${totalLoad} W`;
+
+            // Update Tab Analitik
+            const safeTotalGen = Math.max(1, totalGen);
+            const sPct = totalGen > 0 ? Math.round((state.solar.currentOutput / safeTotalGen) * 100) : 0;
+            const wPct = totalGen > 0 ? Math.round((state.wind.currentOutput / safeTotalGen) * 100) : 0;
+            const pPct = totalGen > 0 ? Math.max(0, 100 - sPct - wPct) : 0;
+
+            document.getElementById('stat-solar-pct').textContent = `${sPct}% (${state.solar.currentOutput} W)`;
+            document.getElementById('bar-solar-pct').style.width = `${sPct}%`;
+            document.getElementById('stat-wind-pct').textContent = `${wPct}% (${state.wind.currentOutput} W)`;
+            document.getElementById('bar-wind-pct').style.width = `${wPct}%`;
+            document.getElementById('stat-piezo-pct').textContent = `${pPct}% (${state.piezo.currentOutput} W)`;
+            document.getElementById('bar-piezo-pct').style.width = `${pPct}%`;
+
+            // Estimasi Harian (24 Jam)
+            const dailySolarKWh = (solarMax * (state.solar.efficiency / 100) * 4.8) / 1000;
+            const dailyWindKWh = (state.wind.currentOutput * 16) / 1000;
+            const dailyPiezoKWh = (state.piezo.currentOutput * 12) / 1000;
+            const totalDailyProd = dailySolarKWh + dailyWindKWh + dailyPiezoKWh;
+
+            let totalDailyLoad = 0;
+            state.appliances.forEach(app => {
+                if (app.active) {
+                    totalDailyLoad += (app.watt * app.qty * app.hours) / 1000;
+                }
+            });
+
+            document.getElementById('stat-daily-prod').textContent = `${totalDailyProd.toFixed(1)} kWh`;
+            document.getElementById('stat-daily-load').textContent = `${totalDailyLoad.toFixed(1)} kWh`;
+
+            const independenceRatio = totalDailyLoad > 0 ? Math.min(100, Math.round((totalDailyProd / totalDailyLoad) * 100)) : 100;
+            const scoreEl = document.getElementById('analytics-score');
+            scoreEl.textContent = `${independenceRatio}%`;
+            scoreEl.className = independenceRatio >= 90
+                ? 'text-4xl font-display font-extrabold text-emerald-400 my-1'
+                : (independenceRatio >= 60 ? 'text-4xl font-display font-extrabold text-amber-400 my-1' : 'text-4xl font-display font-extrabold text-rose-400 my-1');
+
+            const monthlySavings = Math.round(totalDailyProd * 30 * 1445);
+            const annualCO2 = Math.round(totalDailyProd * 365 * 0.85);
+            document.getElementById('stat-savings').textContent = `Rp ${monthlySavings.toLocaleString('id-ID')} / bln`;
+            document.getElementById('stat-co2').textContent = `${annualCO2.toLocaleString('id-ID')} kg CO₂ / thn`;
+        }
+
+        /******************************************************************
+         * 7. RENDER & KUSTOMISASI PERALATAN LISTRIK (APPLIANCES)
+         ******************************************************************/
+        function renderAppliancesList() {
+            const listEl = document.getElementById('appliances-list');
+            listEl.innerHTML = '';
+
+            state.appliances.forEach((app, idx) => {
+                const totalAppWatt = app.watt * app.qty;
+                const card = document.createElement('div');
+                card.className = `glass-card rounded-xl p-3 border transition ${app.active ? 'border-cyan-500/40 bg-slate-800/80' : 'border-slate-800 opacity-75'}`;
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="flex items-center gap-2.5">
+                            <button onclick="toggleAppliance(${idx})" class="w-8 h-8 rounded-lg flex items-center justify-center transition ${app.active ? 'bg-cyan-500 text-slate-950 shadow-md shadow-cyan-500/20' : 'bg-slate-800 text-slate-400'}">
+                                <i class="fa-solid ${app.icon} text-xs"></i>
+                            </button>
+                            <div>
+                                <h4 class="text-xs font-semibold text-white leading-tight">${app.name}</h4>
+                                <span class="text-[10px] ${app.active ? 'text-cyan-300 font-semibold' : 'text-slate-400'}">
+                                    ${app.active ? `Aktif: ${totalAppWatt.toLocaleString('id-ID')} W` : 'Nonaktif (0 W)'}
+                                </span>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center gap-1.5">
+                            <!-- Toggle ON/OFF Button -->
+                            <button onclick="toggleAppliance(${idx})" class="px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider transition ${app.active ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' : 'bg-slate-800 text-slate-400 border border-slate-700'}">
+                                ${app.active ? 'ON' : 'OFF'}
+                            </button>
+                            ${!app.room3D ? `
+                                <button onclick="removeAppliance(${idx})" class="w-6 h-6 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 flex items-center justify-center text-[10px]" title="Hapus Alat">
+                                    <i class="fa-solid fa-trash"></i>
+                                </button>
+                            ` : ''}
+                        </div>
+                    </div>
+
+                    <!-- Custom Watt & Quantity Controls -->
+                    <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-700/60 text-[11px]">
+                        <div>
+                            <label class="text-[10px] text-slate-400 block">Daya / Unit (W)</label>
+                            <input type="number" min="1" max="5000" value="${app.watt}" onchange="updateApplianceField(${idx}, 'watt', this.value)"
+                                class="w-full mt-0.5 px-2 py-1 rounded-lg bg-slate-900/90 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400">
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block">Jumlah Unit</label>
+                            <div class="flex items-center mt-0.5">
+                                <button onclick="changeApplianceQty(${idx}, -1)" class="px-2 py-1 rounded-l-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">-</button>
+                                <span class="flex-1 text-center py-1 bg-slate-900 border-t border-b border-slate-700 text-white font-semibold">${app.qty}</span>
+                                <button onclick="changeApplianceQty(${idx}, 1)" class="px-2 py-1 rounded-r-lg bg-slate-800 hover:bg-slate-700 text-slate-300 border border-slate-700">+</button>
+                            </div>
+                        </div>
+                        <div>
+                            <label class="text-[10px] text-slate-400 block">Pakai (Jam/Hr)</label>
+                            <input type="number" min="0.5" max="24" step="0.5" value="${app.hours}" onchange="updateApplianceField(${idx}, 'hours', this.value)"
+                                class="w-full mt-0.5 px-2 py-1 rounded-lg bg-slate-900/90 border border-slate-700 text-white text-xs focus:outline-none focus:border-cyan-400">
+                        </div>
+                    </div>
+                `;
+                listEl.appendChild(card);
+            });
+        }
+
+        function toggleAppliance(idx) {
+            state.appliances[idx].active = !state.appliances[idx].active;
+            renderAppliancesList();
+            sync3DSceneWithConfig();
+        }
+
+        function changeApplianceQty(idx, delta) {
+            state.appliances[idx].qty = Math.max(1, Math.min(30, state.appliances[idx].qty + delta));
+            renderAppliancesList();
+        }
+
+        function updateApplianceField(idx, field, val) {
+            const num = parseFloat(val);
+            if (!isNaN(num) && num > 0) {
+                state.appliances[idx][field] = num;
+                renderAppliancesList();
+            }
+        }
+
+        function removeAppliance(idx) {
+            state.appliances.splice(idx, 1);
+            renderAppliancesList();
+        }
+
+        function openAddApplianceModal() {
+            const modal = document.getElementById('modal-add-appliance');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        function closeAddApplianceModal() {
+            const modal = document.getElementById('modal-add-appliance');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function saveCustomAppliance() {
+            const nameInput = document.getElementById('custom-app-name').value.trim();
+            const watt = parseInt(document.getElementById('custom-app-watt').value) || 100;
+            const qty = parseInt(document.getElementById('custom-app-qty').value) || 1;
+            const hours = parseFloat(document.getElementById('custom-app-hours').value) || 4;
+            const icon = document.getElementById('custom-app-icon').value;
+
+            const name = nameInput || 'Peralatan Listrik Custom';
+            state.appliances.unshift({
+                id: 'custom_' + Date.now(),
+                name,
+                icon,
+                watt: Math.max(1, watt),
+                qty: Math.max(1, qty),
+                hours: Math.min(24, Math.max(0.5, hours)),
+                active: true,
+                room3D: null
+            });
+
+            document.getElementById('custom-app-name').value = '';
+            closeAddApplianceModal();
+            renderAppliancesList();
+        }
+
+        /******************************************************************
+         * 8. INTERAKSI LINGKUNGAN, CUACA, KAMERA & MODE INTIP RUMAH
+         ******************************************************************/
+        function getDeviceEduData(deviceKey) {
+            // Hitung variabel real-time untuk ditampilkan di Poin 2 (Perhitungan)
+            let sunFactor = 0;
+            if (state.timeOfDay >= 6 && state.timeOfDay <= 18) {
+                sunFactor = Math.sin(((state.timeOfDay - 6) / 12) * Math.PI);
+            }
+            const solarMax = state.solar.count * state.solar.wpPerPanel;
+            const windMax = state.wind.count * state.wind.capacityPerUnit;
+            const v = state.wind.windSpeed;
+            const windFactor = v >= 2.5 ? Math.min(1, Math.pow((v - 2.0) / 10.0, 2.2)) : 0;
+            const tileCoverageFactor = state.piezo.tileCount / 48;
+            const stepsPerSec = (state.piezo.activePeople * 2.1).toFixed(1);
+
+            const catalog = {
+                solar: {
+                    title: 'Panel Surya (Fotovoltaik)',
+                    subtitle: 'Mengubah energi foton cahaya matahari langsung menjadi arus listrik searah (DC)',
+                    icon: 'fa-solar-panel',
+                    color: 'amber',
+                    liveOutput: `${state.solar.currentOutput.toLocaleString('id-ID')} W`,
+                    points: [
+                        {
+                            title: '1. Konsep Fisika secara Gampang (Bahasa Mudah)',
+                            icon: 'fa-lightbulb',
+                            summary: 'Bagaimana cahaya matahari bisa menyenggol elektron hingga menjadi listrik?',
+                            content: `
+                                <p class="leading-relaxed text-slate-200 mb-2">
+                                    Bayangkan sinar matahari yang jatuh ke atap rumah itu terdiri dari miliaran bola energi super kecil bernama <b>Foton</b>.
+                                </p>
+                                <ul class="list-disc list-inside space-y-1.5 text-slate-300">
+                                    <li>Panel surya dibuat dari dua lapis lempengan pasir kuarsa khusus (<b>Silikon</b>) yang diberi muatan berbeda: bagian atas kelebihan elektron (<b>Tipe-N</b>) dan bagian bawah kekurangan elektron (<b>Tipe-P</b>).</li>
+                                    <li>Saat bola energi cahaya (foton) menabrak lempengan silikon, foton tersebut <b>"menyenggol" elektron</b> hingga terlepas dari ikatan atomnya.</li>
+                                    <li>Karena ada medan listrik di batas kedua lapisan (<i>P-N Junction</i>), elektron-elektron yang lepas tadi dipaksa mengalir ke satu arah menuju jalur logam penghantar.</li>
+                                    <li><b>Barisan elektron yang mengalir kompak inilah yang menjadi arus listrik!</b> Fenomena ini disebut <b>Efek Fotovoltaik</b>.</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            title: '2. Perhitungan yang Digunakan (Rumus & Angka Simulasi)',
+                            icon: 'fa-calculator',
+                            summary: 'Rumus daya fotovoltaik beserta perhitungan langsung dari pengaturan Anda saat ini.',
+                            content: `
+                                <div class="space-y-2.5">
+                                    <div class="bg-slate-950/80 p-3 rounded-xl border border-amber-500/30 font-mono text-xs text-amber-200">
+                                        <div class="text-[10px] uppercase text-slate-400 mb-1 font-sans font-bold">Rumus Fisika & Simulasi:</div>
+                                        P<sub>surya</sub> = N<sub>panel</sub> × P<sub>Wp</sub> × η<sub>cuaca</sub> × sin((Jam - 6) / 12 × π)
+                                    </div>
+                                    <div class="text-slate-300 space-y-1 text-xs">
+                                        <p><b>Keterangan Variabel Saat Ini:</b></p>
+                                        <ul class="list-disc list-inside space-y-1 text-slate-300">
+                                            <li><b>N<sub>panel</sub> (Jumlah Panel):</b> ${state.solar.count} unit</li>
+                                            <li><b>P<sub>Wp</sub> (Kapasitas per Panel):</b> ${state.solar.wpPerPanel} Wp (Total Maks: <b>${solarMax} Wp</b>)</li>
+                                            <li><b>η<sub>cuaca</sub> (Efisiensi & Intensitas Cahaya):</b> ${state.solar.efficiency}% (${(state.solar.efficiency / 100).toFixed(2)})</li>
+                                            <li><b>Faktor Sudut Matahari (Jam ${state.timeOfDay.toFixed(1)}):</b> ${(sunFactor * 100).toFixed(0)}% (${sunFactor.toFixed(2)})</li>
+                                        </ul>
+                                    </div>
+                                    <div class="bg-amber-500/15 p-3 rounded-xl border border-amber-400/40 text-xs text-amber-100">
+                                        <b>Hasil Perhitungan Saat Ini:</b><br>
+                                        P<sub>surya</sub> = ${state.solar.count} × ${state.solar.wpPerPanel} × ${(state.solar.efficiency / 100).toFixed(2)} × ${sunFactor.toFixed(2)} = <span class="text-sm font-bold text-amber-300">${state.solar.currentOutput.toLocaleString('id-ID')} Watt</span>
+                                    </div>
+                                </div>
+                            `
+                        },
+                        {
+                            title: '3. Sejarah Singkat Penemuan Panel Surya',
+                            icon: 'fa-clock-rotate-left',
+                            summary: 'Dari eksperimen usia 19 tahun, Nobel Albert Einstein, hingga satelit luar angkasa.',
+                            content: `
+                                <div class="space-y-2 text-slate-300">
+                                    <p><b>• 1839 – Edmond Becquerel:</b> Fisikawan Prancis berusia 19 tahun menemukan bahwa dua elektroda di dalam larutan penghantar menghasilkan arus listrik lebih besar saat terkena cahaya matahari.</p>
+                                    <p><b>• 1905 – Albert Einstein:</b> Menjelaskan secara matematis bagaimana paket cahaya (kuanta/foton) menumbuk elektron keluar dari logam (<i>Efek Fotolistrik</i>). Penemuan ini membuat Einstein meraih <b>Hadiah Nobel Fisika 1921</b>.</p>
+                                    <p><b>• 1954 – Bell Labs (AS):</b> Daryl Chapin, Calvin Fuller, dan Gerald Pearson menciptakan sel surya silikon praktis pertama dengan efisiensi 6%, yang kemudian dipakai untuk menyuplai listrik satelit ruang angkasa <i>Vanguard 1</i> (1958).</p>
+                                </div>
+                            `
+                        },
+                        {
+                            title: '4. Komponen Utama & Alur Konversi Listrik (Opsi Tambahan)',
+                            icon: 'fa-diagram-project',
+                            summary: 'Bagaimana listrik DC dari atap diubah menjadi listrik AC 220V untuk peralatan rumah?',
+                            content: `
+                                <ol class="list-decimal list-inside space-y-1.5 text-slate-300">
+                                    <li><b>Sel Fotovoltaik Monokristalin:</b> Menangkap foton dan menghasilkan arus listrik searah (<b>DC</b>).</li>
+                                    <li><b>Solar Charge Controller (MPPT):</b> Mengatur tegangan dan arus agar optimal saat mengisi ke Bank Baterai tanpa menyebabkan <i>overcharge</i>.</li>
+                                    <li><b>Inverter Hybrid:</b> Mengubah arus searah (<b>DC</b>) dari panel/baterai menjadi arus bolak-balik (<b>AC 220V</b>) sehingga bisa menyalakan AC, Kulkas, TV, dan lampu rumah.</li>
+                                </ol>
+                            `
+                        },
+                        {
+                            title: '5. Kelebihan, Tantangan & Fakta Unik (Opsi Tambahan)',
+                            icon: 'fa-star',
+                            summary: 'Mengapa teknologi ini menjadi tulang punggung rumah mandiri energi di Indonesia?',
+                            content: `
+                                <div class="space-y-1.5 text-slate-300">
+                                    <p><b class="text-emerald-300">✔ Kelebihan:</b> Tidak memiliki bagian bergerak (tidak berisik & minim perawatan), usia pakai mencapai 25–30 tahun, sangat cocok untuk iklim tropis khatulistiwa.</p>
+                                    <p><b class="text-rose-300">✖ Tantangan:</b> Tidak memproduksi listrik di malam hari dan output turun saat mendung tebal, sehingga wajib dikombinasikan dengan <b>Kincir Angin</b>, <b>Piezo</b>, dan <b>Baterai</b>.</p>
+                                    <p><b class="text-amber-300">💡 Fakta Unik:</b> Energi cahaya matahari yang jatuh ke permukaan Bumi dalam <b>1 jam saja</b> sudah cukup untuk memenuhi kebutuhan listrik seluruh manusia di dunia selama <b>1 tahun penuh!</b></p>
+                                </div>
+                            `
+                        }
+                    ]
+                },
+                wind: {
+                    title: 'Kincir Angin (Turbin Angin Mikro)',
+                    subtitle: 'Mengubah energi kinetik hembusan angin menjadi energi mekanik putaran lalu menjadi listrik',
+                    icon: 'fa-fan',
+                    color: 'sky',
+                    liveOutput: `${state.wind.currentOutput.toLocaleString('id-ID')} W`,
+                    points: [
+                        {
+                            title: '1. Konsep Fisika secara Gampang (Bahasa Mudah)',
+                            icon: 'fa-lightbulb',
+                            summary: 'Kebalikan dari kipas angin di kamar Anda: angin memutar magnet untuk mencetak listrik!',
+                            content: `
+                                <p class="leading-relaxed text-slate-200 mb-2">
+                                    Prinsip kerja kincir angin sebenarnya adalah <b>kebalikan persis dari kipas angin</b> di rumah kita:
+                                </p>
+                                <ul class="list-disc list-inside space-y-1.5 text-slate-300">
+                                    <li>Kalau kipas angin memakai listrik untuk memutar baling-baling agar menghasilkan angin, kincir angin memakai <b>hembusan angin</b> untuk memutar baling-baling.</li>
+                                    <li>Baling-baling dirancang melengkung mirip sayap pesawat (<i>aerofoil</i>) sehingga saat angin lewat, timbul gaya angkat yang memutar poros utama.</li>
+                                    <li>Di dalam kepala kincir (<i>nacelle</i>), poros tersebut memutar <b>magnet kuat di tengah gulungan kawat tembaga</b> (generator).</li>
+                                    <li>Menurut hukum fisika <b>Induksi Elektromagnetik Faraday</b>, setiap kali medan magnet berputar melewati kawat tembaga, elektron di dalam kawat akan terdorong dan menghasilkan <b>arus listrik!</b></li>
+                                </ul>
+                            `
+                        },
+                        {
+                            title: '2. Perhitungan yang Digunakan (Rumus & Angka Simulasi)',
+                            icon: 'fa-calculator',
+                            summary: 'Mengapa kecepatan angin dipangkatkan tiga (v³) dan bagaimana simulasi menghitungnya?',
+                            content: `
+                                <div class="space-y-2.5">
+                                    <div class="bg-slate-950/80 p-3 rounded-xl border border-sky-500/30 font-mono text-xs text-sky-200">
+                                        <div class="text-[10px] uppercase text-slate-400 mb-1 font-sans font-bold">Rumus Fisika Daya Angin Teoritis:</div>
+                                        P<sub>angin</sub> = ½ × ρ × A × v³ × C<sub>p</sub>
+                                        <div class="text-[10px] uppercase text-slate-400 mt-2 mb-1 font-sans font-bold">Rumus Kurva Turbin di Simulasi:</div>
+                                        P<sub>output</sub> = N<sub>turbin</sub> × P<sub>kapasitas</sub> × ((v - 2.0) / 10)<sup>2.2</sup>
+                                    </div>
+                                    <div class="text-slate-300 space-y-1 text-xs">
+                                        <p><b>Keterangan Variabel Saat Ini:</b></p>
+                                        <ul class="list-disc list-inside space-y-1 text-slate-300">
+                                            <li><b>ρ (Massa Jenis Udara):</b> ~1,225 kg/m³ | <b>A:</b> Luas sapuan baling-baling (πr²)</li>
+                                            <li><b>v (Kecepatan Angin Saat Ini):</b> ${v.toFixed(1)} m/s (Cut-in speed minimal: 2,5 m/s)</li>
+                                            <li><b>N<sub>turbin</sub> (Jumlah Kincir):</b> ${state.wind.count} unit × ${state.wind.capacityPerUnit} W = <b>${windMax} W Maks</b></li>
+                                            <li><b>Faktor Kurva Kecepatan Angin:</b> ${(windFactor * 100).toFixed(1)}% (${windFactor.toFixed(2)})</li>
+                                        </ul>
+                                    </div>
+                                    <div class="bg-sky-500/15 p-3 rounded-xl border border-sky-400/40 text-xs text-sky-100">
+                                        <b>Hasil Perhitungan Saat Ini:</b><br>
+                                        P<sub>output</sub> = ${state.wind.count} × ${state.wind.capacityPerUnit} W × ${windFactor.toFixed(2)} = <span class="text-sm font-bold text-sky-300">${state.wind.currentOutput.toLocaleString('id-ID')} Watt</span>
+                                        <p class="mt-1 text-[11px] text-sky-200/80">*Perhatikan: Karena v berpangkat tiga (v³), jika kecepatan angin naik 2x lipat, potensi energinya melonjak hingga 8x lipat!</p>
+                                    </div>
+                                </div>
+                            `
+                        },
+                        {
+                            title: '3. Sejarah Singkat Kincir Angin Pembangkit Listrik',
+                            icon: 'fa-clock-rotate-left',
+                            summary: 'Dari kincir penumbuk gandum Persia kuno hingga turbin listrik pertama di Skotlandia.',
+                            content: `
+                                <div class="space-y-2 text-slate-300">
+                                    <p><b>• Abad ke-9 (Persia Kuno):</b> Kincir angin vertikal pertama dibuat untuk menggiling biji gandum dan memompa air irigasi.</p>
+                                    <p><b>• 1831 – Michael Faraday:</b> Menemukan prinsip <b>Induksi Elektromagnetik</b>, fondasi utama semua generator listrik putar di dunia.</p>
+                                    <p><b>• 1887 – Prof. James Blyth (Skotlandia) & Charles F. Brush (AS):</b> Membangun kincir angin pertama di dunia yang dihubungkan ke dinamo untuk menyalakan lampu rumah dan mengisi baterai.</p>
+                                </div>
+                            `
+                        },
+                        {
+                            title: '4. Komponen Utama & Alur Konversi Listrik (Opsi Tambahan)',
+                            icon: 'fa-diagram-project',
+                            summary: 'Bagian-bagian di dalam menara kincir angin rumah mandiri energi.',
+                            content: `
+                                <ol class="list-decimal list-inside space-y-1.5 text-slate-300">
+                                    <li><b>Rotor & Bilah Aerodinamis (Blades):</b> Menangkap hembusan angin dan mengubahnya menjadi gerak putar (energi mekanik).</li>
+                                    <li><b>Nacelle & Generator Magnet Permanen (PMG):</b> Mengubah putaran poros menjadi listrik walaupun pada putaran rendah.</li>
+                                    <li><b>Wind Controller & Brake System:</b> Menyearahkan arus listrik menuju baterai sekaligus mengerem otomatis jika terjadi badai ekstrem.</li>
+                                </ol>
+                            `
+                        },
+                        {
+                            title: '5. Kelebihan, Tantangan & Fakta Unik (Opsi Tambahan)',
+                            icon: 'fa-star',
+                            summary: 'Rahasia Hukum Betz dan mengapa kincir angin menjadi pasangan ideal panel surya.',
+                            content: `
+                                <div class="space-y-1.5 text-slate-300">
+                                    <p><b class="text-emerald-300">✔ Kelebihan:</b> Dapat memproduksi listrik <b>24 jam sehari (termasuk malam hari dan saat hujan/mendung)</b> ketika panel surya sedang tidak aktif.</p>
+                                    <p><b class="text-rose-300">✖ Tantangan:</b> Kecepatan angin bersifat fluktuatif dan membutuhkan posisi tiang yang bebas dari halangan gedung/pohon tinggi.</p>
+                                    <p><b class="text-sky-300">💡 Fakta Unik (Hukum Betz):</b> Fisikawan Jerman Albert Betz (1919) membuktikan bahwa tidak ada kincir angin yang bisa menangkap 100% energi angin—batas maksimum absolutnya adalah <b>59,3%</b>, karena jika 100% angin dihentikan, angin di belakang baling-baling akan macet dan kincir justru berhenti berputar!</p>
+                                </div>
+                            `
+                        }
+                    ]
+                },
+                piezo: {
+                    title: 'Lantai Piezoelektrik (Pemanen Langkah Kaki)',
+                    subtitle: 'Mengubah tekanan mekanik dan getaran pijakan kaki penghuni rumah menjadi energi listrik',
+                    icon: 'fa-shoe-prints',
+                    color: 'emerald',
+                    liveOutput: `${state.piezo.currentOutput.toLocaleString('id-ID')} W`,
+                    points: [
+                        {
+                            title: '1. Konsep Fisika secara Gampang (Bahasa Mudah)',
+                            icon: 'fa-lightbulb',
+                            summary: 'Bagaimana ubin lantai yang diinjak bisa langsung memercikkan arus listrik?',
+                            content: `
+                                <p class="leading-relaxed text-slate-200 mb-2">
+                                    Kata <b>"Piezo"</b> berasal dari bahasa Yunani <i>piezein</i> yang artinya <b>"menekan"</b> atau <b>"memeras"</b>.
+                                </p>
+                                <ul class="list-disc list-inside space-y-1.5 text-slate-300">
+                                    <li>Di bawah ubin lantai teras rumah ini terdapat kepingan kristal khusus (seperti kuarsa atau keramik <i>PZT</i>).</li>
+                                    <li>Dalam keadaan normal (tidak diinjak), susunan muatan listrik positif (+) dan negatif (-) di dalam kristal tersebut seimbang dan saling menetralkan.</li>
+                                    <li>Namun, <b>saat kaki kita menginjak ubin</b>, kristal tersebut tertekan sedikit (mengalami deformasi mikro) sehingga posisi atom positif dan negatifnya bergeser terpisah ke sisi atas dan bawah!</li>
+                                    <li>Pemisahan muatan ini menciptakan tegangan listrik (voltase) seketika. Saat dihubungkan ke rangkaian, <b>setiap pijakan kaki langsung mengirim denyut listrik ke baterai!</b></li>
+                                </ul>
+                            `
+                        },
+                        {
+                            title: '2. Perhitungan yang Digunakan (Rumus & Angka Simulasi)',
+                            icon: 'fa-calculator',
+                            summary: 'Rumus muatan piezoelektrik dan kalkulasi daya dari jumlah ubin & langkah kaki.',
+                            content: `
+                                <div class="space-y-2.5">
+                                    <div class="bg-slate-950/80 p-3 rounded-xl border border-emerald-500/30 font-mono text-xs text-emerald-200">
+                                        <div class="text-[10px] uppercase text-slate-400 mb-1 font-sans font-bold">Rumus Fisika Dasar Piezoelektrik:</div>
+                                        Q = d<sub>33</sub> × F &nbsp;&nbsp;|&nbsp;&nbsp; E = ½ × C × V²
+                                        <div class="text-[10px] uppercase text-slate-400 mt-2 mb-1 font-sans font-bold">Rumus Daya di Simulasi Rumah:</div>
+                                        P<sub>piezo</sub> = (N<sub>orang</sub> × f<sub>langkah</sub>) × P<sub>injak</sub> × (N<sub>ubin</sub> / 48) + P<sub>boost</sub>
+                                    </div>
+                                    <div class="text-slate-300 space-y-1 text-xs">
+                                        <p><b>Keterangan Variabel Saat Ini:</b></p>
+                                        <ul class="list-disc list-inside space-y-1 text-slate-300">
+                                            <li><b>d<sub>33</sub>:</b> Koefisien muatan piezoelektrik (Coulomb/Newton) | <b>F:</b> Gaya berat pijakan kaki (N)</li>
+                                            <li><b>N<sub>orang</sub> (Penghuni Berjalan):</b> ${state.piezo.activePeople} orang (~${stepsPerSec} langkah/detik)</li>
+                                            <li><b>P<sub>injak</sub> (Konversi Daya per Langkah):</b> ${state.piezo.wattPerStep} Watt/injak</li>
+                                            <li><b>N<sub>ubin</sub> (Cakupan Ubin Aktif):</b> ${state.piezo.tileCount} ubin (Faktor area: ${tileCoverageFactor.toFixed(2)}x)</li>
+                                        </ul>
+                                    </div>
+                                    <div class="bg-emerald-500/15 p-3 rounded-xl border border-emerald-400/40 text-xs text-emerald-100">
+                                        <b>Hasil Perhitungan Saat Ini:</b><br>
+                                        P<sub>piezo</sub> = ${stepsPerSec} langkah/dtk × ${state.piezo.wattPerStep} W × ${tileCoverageFactor.toFixed(2)} + ${Math.round(state.piezo.boostPower)} W (Boost) = <span class="text-sm font-bold text-emerald-300">${state.piezo.currentOutput.toLocaleString('id-ID')} Watt</span>
+                                    </div>
+                                </div>
+                            `
+                        },
+                        {
+                            title: '3. Sejarah Singkat Penemuan Piezoelektrik',
+                            icon: 'fa-clock-rotate-left',
+                            summary: 'Ditemukan oleh kakak-beradik Curie (1880), dipakai di kapal selam hingga Stasiun Tokyo.',
+                            content: `
+                                <div class="space-y-2 text-slate-300">
+                                    <p><b>• 1880 – Pierre Curie & Jacques Curie:</b> Dua bersaudara fisikawan Prancis ini menemukan bahwa menekan kristal kuarsa, turmalin, dan garam Rochelle secara mekanis menghasilkan muatan listrik di permukaannya.</p>
+                                    <p><b>• 1917 – Paul Langevin (Perang Dunia I):</b> Mengembangkan transduser piezoelektrik kuarsa untuk menciptakan teknologi <b>SONAR</b> pertama guna mendeteksi kapal selam.</p>
+                                    <p><b>• Era Modern (2008–Sekarang):</b> Lantai pemanen energi piezoelektrik dipasang di <b>Stasiun Shibuya (Tokyo)</b>, bandara, stadion olahraga, hingga hunian pintar untuk memanen energi dari ribuan langkah kaki setiap hari.</p>
+                                </div>
+                            `
+                        },
+                        {
+                            title: '4. Komponen Utama & Alur Konversi Listrik (Opsi Tambahan)',
+                            icon: 'fa-diagram-project',
+                            summary: 'Apa saja yang ada di bawah satu keping ubin piezoelektrik?',
+                            content: `
+                                <ol class="list-decimal list-inside space-y-1.5 text-slate-300">
+                                    <li><b>Pelat Pijakan Elastis (Top Plate):</b> Menerima beban langkah kaki (turun 2–5 mm saat diinjak) dan meneruskan gaya tekan ke sensor.</li>
+                                    <li><b>Susunan Kristal Keramik PZT / Polimer PVDF:</b> Mengubah tekanan mekanik menjadi pulsa tegangan bolak-balik (AC frekuensi rendah).</li>
+                                    <li><b>Full-Wave Bridge Rectifier & Superkapasitor:</b> Menyearahkan denyut listrik singkat dari injakan kaki menjadi arus DC stabil untuk disimpan ke baterai.</li>
+                                </ol>
+                            `
+                        },
+                        {
+                            title: '5. Kelebihan, Tantangan & Fakta Unik (Opsi Tambahan)',
+                            icon: 'fa-star',
+                            summary: 'Mengapa lantai piezoelektrik adalah inovasi masa depan untuk smart building?',
+                            content: `
+                                <div class="space-y-1.5 text-slate-300">
+                                    <p><b class="text-emerald-300">✔ Kelebihan:</b> 100% bebas dari pengaruh cuaca (tetap bekerja saat malam maupun tanpa angin), tidak memakan lahan tambahan karena menyatu dengan lantai jalan/teras.</p>
+                                    <p><b class="text-rose-300">✖ Tantangan:</b> Energi dari satu kali pijakan relatif kecil, sehingga paling efektif dipasang di titik lalu-lalang utama (pintu masuk, lorong, tangga, teras).</p>
+                                    <p><b class="text-emerald-300">💡 Fakta Unik:</b> Pemantik api kompor gas atau korek gas elektrik yang berbunyi <i>"cetik!"</i> tanpa baterai di dapur Anda sebenarnya menggunakan <b>kristal piezoelektrik</b> yang dipukul palu kecil untuk memercikkan listrik ribuan volt!</p>
+                                </div>
+                            `
+                        }
+                    ]
+                },
+                battery: {
+                    title: 'Bank Baterai & Manajemen Beban Rumah',
+                    subtitle: 'Menyimpan surplus energi secara elektrokimia dan menyeimbangkan pasokan ke peralatan rumah',
+                    icon: 'fa-car-battery',
+                    color: 'purple',
+                    liveOutput: `SOC: ${Math.round(state.battery.soc)}% (${state.battery.capacityKWh} kWh)`,
+                    points: [
+                        {
+                            title: '1. Konsep Fisika & Kimia secara Gampang (Bahasa Mudah)',
+                            icon: 'fa-lightbulb',
+                            summary: 'Bagaimana baterai menyimpan listrik dari surya, angin, dan piezo untuk dipakai malam hari?',
+                            content: `
+                                <p class="leading-relaxed text-slate-200 mb-2">
+                                    Bank baterai rumah bekerja seperti <b>"tandon air energi"</b> menggunakan prinsip <b>Reaksi Elektrokimia</b>:
+                                </p>
+                                <ul class="list-disc list-inside space-y-1.5 text-slate-300">
+                                    <li>Saat produksi listrik dari Panel Surya, Kincir Angin, dan Lantai Piezo <b>lebih besar</b> daripada pemakaian alat rumah (<b>Surplus</b>), kelebihan listrik dipakai untuk mendorong ion Lithium berpindah dari kutub Katoda ke Anoda (proses <i>Charging</i>).</li>
+                                    <li>Sebaliknya, saat malam hari atau ketika banyak alat menyala bersamaan (<b>Defisit</b>), ion Lithium mengalir kembali ke Katoda dan melepaskan elektron untuk menyalakan lampu, AC, dan kulkas (proses <i>Discharging</i>).</li>
+                                </ul>
+                            `
+                        },
+                        {
+                            title: '2. Perhitungan Neraca Energi Rumah (Rumus & Angka Simulasi)',
+                            icon: 'fa-calculator',
+                            summary: 'Bagaimana simulasi menghitung surplus/defisit daya dan ketahanan baterai?',
+                            content: `
+                                <div class="space-y-2.5">
+                                    <div class="bg-slate-950/80 p-3 rounded-xl border border-purple-500/30 font-mono text-xs text-purple-200">
+                                        P<sub>total_produksi</sub> = P<sub>surya</sub> + P<sub>angin</sub> + P<sub>piezo</sub><br>
+                                        P<sub>beban_rumah</sub> = Σ (P<sub>alat</sub> × Jumlah<sub>unit</sub>)<br>
+                                        P<sub>neraca</sub> = P<sub>total_produksi</sub> - P<sub>beban_rumah</sub>
+                                    </div>
+                                    <div class="bg-purple-500/15 p-3 rounded-xl border border-purple-400/40 text-xs text-purple-100">
+                                        <b>Neraca Energi Rumah Saat Ini:</b><br>
+                                        • Total Produksi: ${state.solar.currentOutput} W + ${state.wind.currentOutput} W + ${state.piezo.currentOutput} W = <b>${(state.solar.currentOutput + state.wind.currentOutput + state.piezo.currentOutput).toLocaleString('id-ID')} W</b><br>
+                                        • Kapasitas Simpanan Baterai: <b>${state.battery.capacityKWh} kWh (${(state.battery.capacityKWh * 1000).toLocaleString('id-ID')} Wh)</b> pada terisi <b>${Math.round(state.battery.soc)}%</b>.
+                                    </div>
+                                </div>
+                            `
+                        },
+                        {
+                            title: '3. Sejarah Singkat Baterai Penyimpan Energi',
+                            icon: 'fa-clock-rotate-left',
+                            summary: 'Dari tumpukan logam Alessandro Volta (1800) hingga baterai Lithium modern.',
+                            content: `
+                                <div class="space-y-2 text-slate-300">
+                                    <p><b>• 1800 – Alessandro Volta:</b> Menciptakan <i>Voltaic Pile</i>, baterai elektrokimia pertama di dunia dari tumpukan cakram tembaga dan seng (namanya diabadikan menjadi satuan <b>Volt</b>).</p>
+                                    <p><b>• 1970–1991 – Whittingham, Goodenough & Yoshino:</b> Mengembangkan baterai <b>Lithium-Ion</b> yang ringan, berkapasitas padat, dan dapat diisi ulang ribuan kali (meraih <b>Nobel Kimia 2019</b>).</p>
+                                </div>
+                            `
+                        },
+                        {
+                            title: '4. Mengapa Kombinasi 3 Sumber Energi (Hybrid) Itu Penting?',
+                            icon: 'fa-diagram-project',
+                            summary: 'Sinergi antara Panel Surya, Kincir Angin, dan Lantai Piezoelektrik.',
+                            content: `
+                                <p class="text-slate-300 leading-relaxed">
+                                    Jika rumah hanya mengandalkan 1 sumber saja, pasokan listrik akan rentan terputus saat cuaca berubah. Dengan menggabungkan <b>Surya (siang hari)</b>, <b>Kincir Angin (siang & malam berangin)</b>, serta <b>Lantai Piezo (aktivitas penghuni)</b>, rumah memiliki 3 lapis sumber energi yang saling menopang menuju <b>100% Rumah Mandiri Energi (Zero-Energy Building)</b>.
+                                </p>
+                            `
+                        }
+                    ]
+                }
+            };
+
+            return catalog[deviceKey] || catalog.solar;
+        }
+
+        /******************************************************************
+         * 8B. ENGINE 3D KHUSUS PREVIEW ALAT DI MODAL (KOLOM KIRI 2/5)
+         ******************************************************************/
+        function initEdu3DPreview() {
+            if (eduRenderer) return;
+            const container = document.getElementById('edu-3d-canvas-container');
+            if (!container) return;
+
+            eduScene = new THREE.Scene();
+
+            const w = container.clientWidth || 360;
+            const h = container.clientHeight || 460;
+            eduCamera = new THREE.PerspectiveCamera(42, w / h, 0.1, 100);
+
+            eduRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+            eduRenderer.setSize(w, h);
+            eduRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            container.innerHTML = '';
+            container.appendChild(eduRenderer.domElement);
+
+            // Pencahayaan Studio untuk Model Alat 3D
+            const hemi = new THREE.HemisphereLight(0xe0f2fe, 0x0f172a, 0.9);
+            eduScene.add(hemi);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 1.3);
+            dirLight.position.set(6, 10, 8);
+            eduScene.add(dirLight);
+
+            const rimLight = new THREE.DirectionalLight(0x38bdf8, 0.6);
+            rimLight.position.set(-6, -4, -6);
+            eduScene.add(rimLight);
+
+            // Grid Lantai Hologram Tipis
+            const grid = new THREE.GridHelper(8, 12, 0x334155, 0x1e293b);
+            grid.position.y = -2.2;
+            eduScene.add(grid);
+
+            eduModelGroup = new THREE.Group();
+            eduScene.add(eduModelGroup);
+
+            // Kontrol Drag & Zoom pada Canvas Modal 3D
+            const dom = eduRenderer.domElement;
+            dom.addEventListener('mousedown', (e) => {
+                eduOrbit.isDragging = true;
+                eduOrbit.autoRotate = false;
+                eduOrbit.prevX = e.clientX;
+                eduOrbit.prevY = e.clientY;
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!eduOrbit.isDragging) return;
+                const dx = e.clientX - eduOrbit.prevX;
+                const dy = e.clientY - eduOrbit.prevY;
+                eduOrbit.prevX = e.clientX;
+                eduOrbit.prevY = e.clientY;
+                eduOrbit.theta -= dx * 0.01;
+                eduOrbit.phi = Math.max(0.35, Math.min(1.5, eduOrbit.phi - dy * 0.01));
+            });
+
+            window.addEventListener('mouseup', () => {
+                eduOrbit.isDragging = false;
+            });
+
+            dom.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                eduOrbit.radius = Math.max(4.2, Math.min(12, eduOrbit.radius + e.deltaY * 0.008));
+            }, { passive: false });
+
+            dom.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    eduOrbit.isDragging = true;
+                    eduOrbit.autoRotate = false;
+                    eduOrbit.prevX = e.touches[0].clientX;
+                    eduOrbit.prevY = e.touches[0].clientY;
+                }
+            }, { passive: true });
+
+            dom.addEventListener('touchmove', (e) => {
+                if (!eduOrbit.isDragging || e.touches.length !== 1) return;
+                const dx = e.touches[0].clientX - eduOrbit.prevX;
+                const dy = e.touches[0].clientY - eduOrbit.prevY;
+                eduOrbit.prevX = e.touches[0].clientX;
+                eduOrbit.prevY = e.touches[0].clientY;
+                eduOrbit.theta -= dx * 0.01;
+                eduOrbit.phi = Math.max(0.35, Math.min(1.5, eduOrbit.phi - dy * 0.01));
+            }, { passive: true });
+
+            dom.addEventListener('touchend', () => {
+                eduOrbit.isDragging = false;
+            });
+        }
+
+        function resizeEdu3DPreview() {
+            if (!eduRenderer || !eduCamera) return;
+            const container = document.getElementById('edu-3d-canvas-container');
+            if (!container) return;
+            const w = container.clientWidth;
+            const h = container.clientHeight;
+            if (w > 0 && h > 0) {
+                eduCamera.aspect = w / h;
+                eduCamera.updateProjectionMatrix();
+                eduRenderer.setSize(w, h);
+            }
+        }
+
+        function resetEdu3DCamera() {
+            eduOrbit.theta = 0.55;
+            eduOrbit.phi = 1.05;
+            eduOrbit.radius = 7.2;
+            eduOrbit.autoRotate = true;
+        }
+
+        function triggerEdu3DSpecialAction() {
+            if (currentEduDevice === 'piezo') {
+                triggerPiezoFootstepBoost();
+                if (eduAnimObjects.piezoPress !== undefined) {
+                    eduAnimObjects.piezoPress = 1.0;
+                }
+                renderDeviceEduModalContent();
+            }
+        }
+
+        function buildEdu3DDeviceModel(deviceKey) {
+            initEdu3DPreview();
+            if (!eduModelGroup) return;
+
+            // Bersihkan model sebelumnya
+            while (eduModelGroup.children.length > 0) {
+                eduModelGroup.remove(eduModelGroup.children[0]);
+            }
+            eduAnimObjects = {};
+            resetEdu3DCamera();
+
+            const captionEl = document.getElementById('edu-3d-caption');
+            const badgeEl = document.getElementById('edu-3d-badge');
+            const actionBtn = document.getElementById('edu-3d-action-btn');
+            actionBtn.classList.add('hidden');
+
+            if (deviceKey === 'solar') {
+                badgeEl.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 shadow-lg';
+                badgeEl.innerHTML = '<i class="fa-solid fa-solar-panel"></i> Model 3D Panel Surya';
+                captionEl.innerHTML = 'Partikel <b class="text-amber-300">Foton Cahaya (Kuning)</b> menumbuk sel silikon dan melepaskan aliran <b class="text-cyan-300">Elektron Listrik (Biru)</b>.';
+
+                // Penyangga Miring Panel Surya
+                const standMat = new THREE.MeshStandardMaterial({ color: 0x64748b, metalness: 0.7, roughness: 0.3 });
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.5, 0.25, 24), standMat);
+                base.position.y = -2.05;
+                eduModelGroup.add(base);
+
+                const pillar = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.22, 1.9, 16), standMat);
+                pillar.position.y = -1.1;
+                eduModelGroup.add(pillar);
+
+                // Grup Panel Miring
+                const panelTilt = new THREE.Group();
+                panelTilt.rotation.x = 0.48;
+                panelTilt.position.y = -0.1;
+
+                // Bingkai Aluminium
+                const frame = new THREE.Mesh(
+                    new THREE.BoxGeometry(3.6, 0.16, 2.5),
+                    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, metalness: 0.8, roughness: 0.2 })
+                );
+                panelTilt.add(frame);
+
+                // Lapisan Sel Silikon Monokristalin
+                const silicon = new THREE.Mesh(
+                    new THREE.BoxGeometry(3.4, 0.18, 2.3),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x0284c7,
+                        emissive: 0x0369a1,
+                        emissiveIntensity: 0.45,
+                        metalness: 0.85,
+                        roughness: 0.15
+                    })
+                );
+                panelTilt.add(silicon);
+
+                // Garis Busbar Perak di atas Sel Surya
+                const lineMat = new THREE.MeshBasicMaterial({ color: 0xbae6fd });
+                for (let i = -1; i <= 1; i++) {
+                    const vLine = new THREE.Mesh(new THREE.BoxGeometry(0.03, 0.2, 2.28), lineMat);
+                    vLine.position.x = i * 1.1;
+                    panelTilt.add(vLine);
+                }
+                for (let j = -1; j <= 1; j += 2) {
+                    const hLine = new THREE.Mesh(new THREE.BoxGeometry(3.38, 0.2, 0.03), lineMat);
+                    hLine.position.z = j * 0.58;
+                    panelTilt.add(hLine);
+                }
+
+                eduModelGroup.add(panelTilt);
+
+                // Mini Matahari di Atas
+                const miniSun = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.48, 20, 20),
+                    new THREE.MeshBasicMaterial({ color: 0xfde047 })
+                );
+                miniSun.position.set(0, 2.25, 1.1);
+                eduModelGroup.add(miniSun);
+
+                // Partikel Foton (Jatuh dari Matahari ke Panel) & Elektron (Mengalir di Panel)
+                eduAnimObjects.photons = [];
+                for (let i = 0; i < 14; i++) {
+                    const photon = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.08, 10, 10),
+                        new THREE.MeshBasicMaterial({ color: 0xfacc15 })
+                    );
+                    photon.userData = {
+                        progress: Math.random(),
+                        speed: 0.55 + Math.random() * 0.35,
+                        targetX: (Math.random() - 0.5) * 2.8,
+                        targetZ: (Math.random() - 0.5) * 1.6
+                    };
+                    eduModelGroup.add(photon);
+                    eduAnimObjects.photons.push(photon);
+                }
+
+                eduAnimObjects.electrons = [];
+                for (let i = 0; i < 12; i++) {
+                    const elec = new THREE.Mesh(
+                        new THREE.SphereGeometry(0.065, 8, 8),
+                        new THREE.MeshBasicMaterial({ color: 0x38bdf8 })
+                    );
+                    elec.userData = {
+                        offset: Math.random(),
+                        lane: (i % 3) - 1
+                    };
+                    panelTilt.add(elec);
+                    eduAnimObjects.electrons.push(elec);
+                }
+
+            } else if (deviceKey === 'wind') {
+                badgeEl.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-sky-500/20 text-sky-300 border border-sky-500/40 flex items-center gap-1.5 shadow-lg';
+                badgeEl.innerHTML = '<i class="fa-solid fa-fan fa-spin"></i> Model 3D Kincir Angin';
+                captionEl.innerHTML = 'Hembusan <b class="text-sky-300">Angin</b> memutar bilah aerodinamis & kumparan magnet generator di dalam <i>nacelle</i>.';
+
+                const poleMat = new THREE.MeshStandardMaterial({ color: 0xf1f5f9, metalness: 0.4, roughness: 0.3 });
+                const base = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.35, 0.3, 24), poleMat);
+                base.position.y = -2.05;
+                eduModelGroup.add(base);
+
+                const tower = new THREE.Mesh(new THREE.CylinderGeometry(0.18, 0.36, 3.3, 20), poleMat);
+                tower.position.y = -0.35;
+                eduModelGroup.add(tower);
+
+                // Nacelle Transparan sebagian agar terlihat Kumparan Tembaga Generator di dalamnya
+                const nacelle = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.75, 0.68, 1.55),
+                    new THREE.MeshStandardMaterial({ color: 0xe2e8f0, transparent: true, opacity: 0.55 })
+                );
+                nacelle.position.set(0, 1.35, 0.1);
+                eduModelGroup.add(nacelle);
+
+                // Kumparan Tembaga Generator (Berputar di dalam Nacelle)
+                const coil = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.24, 0.24, 0.7, 16),
+                    new THREE.MeshStandardMaterial({ color: 0xf97316, emissive: 0xea580c, emissiveIntensity: 0.4, metalness: 0.7 })
+                );
+                coil.rotation.x = Math.PI / 2;
+                coil.position.set(0, 1.35, 0.15);
+                eduModelGroup.add(coil);
+                eduAnimObjects.generatorCoil = coil;
+
+                // Rotor & 3 Bilah Kincir
+                const rotor = new THREE.Group();
+                rotor.position.set(0, 1.35, 0.92);
+
+                const hub = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.32, 16, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.2 })
+                );
+                rotor.add(hub);
+
+                const bladeMat = new THREE.MeshStandardMaterial({ color: 0x38bdf8, metalness: 0.2, roughness: 0.25 });
+                for (let i = 0; i < 3; i++) {
+                    const pivot = new THREE.Group();
+                    pivot.rotation.z = (i * Math.PI * 2) / 3;
+
+                    const blade = new THREE.Mesh(new THREE.BoxGeometry(0.26, 2.15, 0.06), bladeMat);
+                    blade.position.y = 1.1;
+                    blade.rotation.y = 0.25;
+                    pivot.add(blade);
+                    rotor.add(pivot);
+                }
+                eduModelGroup.add(rotor);
+                eduAnimObjects.windRotor = rotor;
+
+                // Garis-garis Aliran Angin 3D
+                eduAnimObjects.windStreams = [];
+                const streamMat = new THREE.MeshBasicMaterial({ color: 0x7dd3fc, transparent: true, opacity: 0.65 });
+                for (let i = 0; i < 10; i++) {
+                    const stream = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 0.9), streamMat);
+                    stream.position.set(
+                        (Math.random() - 0.5) * 3.2,
+                        0.2 + Math.random() * 2.3,
+                        (Math.random() - 0.5) * 4
+                    );
+                    eduModelGroup.add(stream);
+                    eduAnimObjects.windStreams.push(stream);
+                }
+
+            } else if (deviceKey === 'piezo') {
+                badgeEl.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 shadow-lg';
+                badgeEl.innerHTML = '<i class="fa-solid fa-shoe-prints"></i> Model 3D Lantai Piezoelektrik';
+                captionEl.innerHTML = 'Saat ubin tertekan pijakan, <b class="text-amber-300">Kristal PZT</b> di tengah terdeformasi dan memercikkan arus listrik.';
+                actionBtn.classList.remove('hidden');
+
+                // Lapisan Bawah Ubin (Sub-base)
+                const bottomBase = new THREE.Mesh(
+                    new THREE.BoxGeometry(3.2, 0.28, 3.2),
+                    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.5, roughness: 0.4 })
+                );
+                bottomBase.position.y = -1.25;
+                eduModelGroup.add(bottomBase);
+
+                // 4 Cakram Kristal Piezoelektrik PZT + Pegas di Tengah
+                eduAnimObjects.crystals = [];
+                const crystalPositions = [[-0.85, -0.85], [0.85, -0.85], [-0.85, 0.85], [0.85, 0.85]];
+                crystalPositions.forEach(([cx, cz]) => {
+                    const crystal = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.45, 0.45, 0.55, 20),
+                        new THREE.MeshStandardMaterial({
+                            color: 0xfbbf24,
+                            emissive: 0x10b981,
+                            emissiveIntensity: 0.3,
+                            metalness: 0.6,
+                            roughness: 0.2
+                        })
+                    );
+                    crystal.position.set(cx, -0.75, cz);
+                    eduModelGroup.add(crystal);
+                    eduAnimObjects.crystals.push(crystal);
+                });
+
+                // Pelat Pijakan Atas (Top Tile Plate)
+                const topPlateGroup = new THREE.Group();
+                const topPlate = new THREE.Mesh(
+                    new THREE.BoxGeometry(3.2, 0.24, 3.2),
+                    new THREE.MeshStandardMaterial({
+                        color: 0x10b981,
+                        emissive: 0x059669,
+                        emissiveIntensity: 0.35,
+                        transparent: true,
+                        opacity: 0.88
+                    })
+                );
+                topPlateGroup.add(topPlate);
+                topPlateGroup.position.y = -0.25;
+                eduModelGroup.add(topPlateGroup);
+                eduAnimObjects.piezoTopPlate = topPlateGroup;
+                eduAnimObjects.piezoTopMesh = topPlate;
+
+                // Penekan Langkah Kaki (Stylized Foot Presser di atas ubin)
+                const footPresser = new THREE.Group();
+                const shoeSole = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.1, 0.25, 1.8),
+                    new THREE.MeshStandardMaterial({ color: 0x38bdf8, roughness: 0.3 })
+                );
+                const ankle = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.32, 0.36, 0.9, 16),
+                    new THREE.MeshStandardMaterial({ color: 0x0284c7, roughness: 0.4 })
+                );
+                ankle.position.set(0, 0.5, -0.2);
+                footPresser.add(shoeSole);
+                footPresser.add(ankle);
+                footPresser.position.y = 0.8;
+                eduModelGroup.add(footPresser);
+                eduAnimObjects.footPresser = footPresser;
+                eduAnimObjects.piezoPhase = 0;
+                eduAnimObjects.piezoPress = 0;
+
+            } else if (deviceKey === 'battery') {
+                badgeEl.className = 'px-2.5 py-1 rounded-full text-[11px] font-bold bg-purple-500/20 text-purple-300 border border-purple-500/40 flex items-center gap-1.5 shadow-lg';
+                badgeEl.innerHTML = '<i class="fa-solid fa-car-battery"></i> Model 3D Bank Baterai';
+                captionEl.innerHTML = 'Menyimpan surplus energi di dalam modul sel <b class="text-purple-300">Lithium-Ion</b> untuk menyuplai rumah 24 jam.';
+
+                // Casing Belakang Powerwall
+                const body = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.2, 3.4, 0.85),
+                    new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.6, roughness: 0.3 })
+                );
+                eduModelGroup.add(body);
+
+                // Kaca Depan Transparan
+                const glassFront = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.0, 3.1, 0.12),
+                    new THREE.MeshStandardMaterial({ color: 0xa855f7, transparent: true, opacity: 0.28 })
+                );
+                glassFront.position.z = 0.44;
+                eduModelGroup.add(glassFront);
+
+                // Bar Indikator Level Baterai (Menyala sesuai SOC)
+                eduAnimObjects.batteryCells = [];
+                for (let i = 0; i < 5; i++) {
+                    const cellBar = new THREE.Mesh(
+                        new THREE.BoxGeometry(1.5, 0.42, 0.2),
+                        new THREE.MeshStandardMaterial({
+                            color: 0x22d3ee,
+                            emissive: 0xa855f7,
+                            emissiveIntensity: 0.6
+                        })
+                    );
+                    cellBar.position.set(0, -1.05 + i * 0.52, 0.38);
+                    eduModelGroup.add(cellBar);
+                    eduAnimObjects.batteryCells.push(cellBar);
+                }
+            }
+
+            resizeEdu3DPreview();
+        }
+
+        function updateEdu3DAnimation(dt) {
+            if (!currentEduDevice || !eduRenderer || !eduScene || !eduCamera) return;
+
+            if (eduOrbit.autoRotate && !eduOrbit.isDragging) {
+                eduOrbit.theta += dt * 0.35;
+            }
+
+            eduCamera.position.x = eduOrbit.target.x + eduOrbit.radius * Math.sin(eduOrbit.phi) * Math.sin(eduOrbit.theta);
+            eduCamera.position.y = eduOrbit.target.y + eduOrbit.radius * Math.cos(eduOrbit.phi);
+            eduCamera.position.z = eduOrbit.target.z + eduOrbit.radius * Math.sin(eduOrbit.phi) * Math.cos(eduOrbit.theta);
+            eduCamera.lookAt(eduOrbit.target);
+
+            // Animasi spesifik per alat
+            if (currentEduDevice === 'solar') {
+                if (eduAnimObjects.photons) {
+                    eduAnimObjects.photons.forEach(p => {
+                        p.userData.progress += dt * p.userData.speed;
+                        if (p.userData.progress > 1) p.userData.progress = 0;
+                        const t = p.userData.progress;
+                        p.position.x = THREE.MathUtils.lerp(0, p.userData.targetX, t);
+                        p.position.y = THREE.MathUtils.lerp(2.2, 0.05, t);
+                        p.position.z = THREE.MathUtils.lerp(1.1, p.userData.targetZ, t);
+                    });
+                }
+                if (eduAnimObjects.electrons) {
+                    eduAnimObjects.electrons.forEach(e => {
+                        e.userData.offset = (e.userData.offset + dt * 0.85) % 1;
+                        e.position.x = e.userData.lane * 1.1;
+                        e.position.y = 0.14;
+                        e.position.z = -1.1 + e.userData.offset * 2.2;
+                    });
+                }
+            } else if (currentEduDevice === 'wind') {
+                const spinSpeed = Math.max(1.5, state.wind.windSpeed * 0.7);
+                if (eduAnimObjects.windRotor) {
+                    eduAnimObjects.windRotor.rotation.z -= spinSpeed * dt;
+                }
+                if (eduAnimObjects.generatorCoil) {
+                    eduAnimObjects.generatorCoil.rotation.y += spinSpeed * 2.5 * dt;
+                }
+                if (eduAnimObjects.windStreams) {
+                    eduAnimObjects.windStreams.forEach(s => {
+                        s.position.z -= dt * (3.5 + state.wind.windSpeed * 0.4);
+                        if (s.position.z < -2.4) s.position.z = 2.4;
+                    });
+                }
+            } else if (currentEduDevice === 'piezo') {
+                eduAnimObjects.piezoPhase = (eduAnimObjects.piezoPhase || 0) + dt * 3.2;
+                const autoPress = Math.max(0, Math.sin(eduAnimObjects.piezoPhase));
+                if (eduAnimObjects.piezoPress > 0) {
+                    eduAnimObjects.piezoPress = Math.max(0, eduAnimObjects.piezoPress - dt * 2.2);
+                }
+                const pressAmount = Math.max(autoPress, eduAnimObjects.piezoPress || 0);
+
+                if (eduAnimObjects.footPresser) {
+                    eduAnimObjects.footPresser.position.y = 0.65 - pressAmount * 0.62;
+                }
+                if (eduAnimObjects.piezoTopPlate) {
+                    eduAnimObjects.piezoTopPlate.position.y = -0.25 - pressAmount * 0.16;
+                }
+                if (eduAnimObjects.piezoTopMesh) {
+                    eduAnimObjects.piezoTopMesh.material.emissiveIntensity = 0.25 + pressAmount * 1.3;
+                }
+                if (eduAnimObjects.crystals) {
+                    eduAnimObjects.crystals.forEach(c => {
+                        c.scale.y = 1 - pressAmount * 0.28;
+                        c.material.emissiveIntensity = 0.2 + pressAmount * 1.8;
+                    });
+                }
+            } else if (currentEduDevice === 'battery') {
+                if (eduAnimObjects.batteryCells) {
+                    const activeBars = Math.ceil((state.battery.soc / 100) * 5);
+                    const pulse = 0.5 + 0.4 * Math.sin(performance.now() * 0.005);
+                    eduAnimObjects.batteryCells.forEach((bar, idx) => {
+                        if (idx < activeBars) {
+                            bar.material.color.setHex(0x22d3ee);
+                            bar.material.emissiveIntensity = pulse;
+                        } else {
+                            bar.material.color.setHex(0x334155);
+                            bar.material.emissiveIntensity = 0.05;
+                        }
+                    });
+                }
+            }
+
+            eduRenderer.render(eduScene, eduCamera);
+        }
+
+        function openDeviceEduModal(deviceKey, keepPointIndex = false) {
+            const isSwitchingDevice = currentEduDevice !== deviceKey;
+            currentEduDevice = deviceKey;
+            if (!keepPointIndex) {
+                activeEduPointIndex = 0; // Buka poin ke-1 secara default
+            }
+
+            const modal = document.getElementById('modal-device-edu');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+
+            renderDeviceEduModalContent();
+
+            requestAnimationFrame(() => {
+                if (isSwitchingDevice || !eduRenderer) {
+                    buildEdu3DDeviceModel(deviceKey);
+                } else {
+                    resizeEdu3DPreview();
+                }
+            });
+        }
+
+        function closeDeviceEduModal() {
+            const modal = document.getElementById('modal-device-edu');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+            currentEduDevice = null;
+        }
+
+        function toggleEduPoint(idx) {
+            activeEduPointIndex = (activeEduPointIndex === idx) ? -1 : idx;
+            renderDeviceEduModalContent();
+        }
+
+        function renderDeviceEduModalContent() {
+            if (!currentEduDevice) return;
+            const data = getDeviceEduData(currentEduDevice);
+
+            // Tema warna dinamis berdasarkan jenis alat
+            const colorMap = {
+                amber: {
+                    box: 'bg-amber-500/20 border-amber-500/40 text-amber-400',
+                    badge: 'bg-amber-500/20 text-amber-300 border-amber-500/30',
+                    activeCard: 'border-amber-400/60 bg-slate-800/90',
+                    iconBadge: 'bg-amber-500 text-slate-950'
+                },
+                sky: {
+                    box: 'bg-sky-500/20 border-sky-500/40 text-sky-400',
+                    badge: 'bg-sky-500/20 text-sky-300 border-sky-500/30',
+                    activeCard: 'border-sky-400/60 bg-slate-800/90',
+                    iconBadge: 'bg-sky-400 text-slate-950'
+                },
+                emerald: {
+                    box: 'bg-emerald-500/20 border-emerald-500/40 text-emerald-400',
+                    badge: 'bg-emerald-500/20 text-emerald-300 border-emerald-500/30',
+                    activeCard: 'border-emerald-400/60 bg-slate-800/90',
+                    iconBadge: 'bg-emerald-400 text-slate-950'
+                },
+                purple: {
+                    box: 'bg-purple-500/20 border-purple-500/40 text-purple-400',
+                    badge: 'bg-purple-500/20 text-purple-300 border-purple-500/30',
+                    activeCard: 'border-purple-400/60 bg-slate-800/90',
+                    iconBadge: 'bg-purple-400 text-slate-950'
+                }
+            };
+            const theme = colorMap[data.color] || colorMap.amber;
+
+            document.getElementById('edu-header-icon-box').className = `w-11 h-11 rounded-xl border flex items-center justify-center text-xl shadow-lg ${theme.box}`;
+            document.getElementById('edu-header-icon').className = `fa-solid ${data.icon}`;
+            document.getElementById('edu-header-title').textContent = data.title;
+            document.getElementById('edu-header-subtitle').textContent = data.subtitle;
+
+            const badgeEl = document.getElementById('edu-header-live-badge');
+            badgeEl.className = `px-2.5 py-0.5 rounded-full text-[11px] font-bold border ${theme.badge}`;
+            badgeEl.textContent = `Output Saat Ini: ${data.liveOutput}`;
+
+            // Update tombol tab di atas modal
+            ['solar', 'wind', 'piezo', 'battery'].forEach(key => {
+                const tabBtn = document.getElementById('edu-tab-' + key);
+                if (key === currentEduDevice) {
+                    tabBtn.className = 'px-3 py-1.5 rounded-xl text-xs font-bold bg-cyan-400 text-slate-950 shadow-md shadow-cyan-500/20 flex items-center gap-1.5 transition';
+                } else {
+                    tabBtn.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700 flex items-center gap-1.5 transition';
+                }
+            });
+
+            // Render poin-poin interaktif (klik untuk buka penjelasan lengkap)
+            const container = document.getElementById('edu-points-container');
+            container.innerHTML = '';
+
+            data.points.forEach((pt, idx) => {
+                const isOpen = idx === activeEduPointIndex;
+                const item = document.createElement('div');
+                item.className = `glass-card rounded-xl border transition-all duration-200 overflow-hidden ${isOpen ? theme.activeCard : 'border-slate-700/70 hover:border-slate-500'}`;
+
+                item.innerHTML = `
+                    <button onclick="toggleEduPoint(${idx})" class="w-full p-3.5 text-left flex items-center justify-between gap-3">
+                        <div class="flex items-center gap-3">
+                            <div class="w-8 h-8 rounded-lg flex items-center justify-center text-xs font-bold shrink-0 transition ${isOpen ? theme.iconBadge : 'bg-slate-800 text-slate-300 border border-slate-700'}">
+                                <i class="fa-solid ${pt.icon}"></i>
+                            </div>
+                            <div>
+                                <h4 class="text-xs sm:text-sm font-bold text-white">${pt.title}</h4>
+                                <p class="text-[11px] text-slate-400">${pt.summary}</p>
+                            </div>
+                        </div>
+                        <div class="w-7 h-7 rounded-lg bg-slate-900/80 flex items-center justify-center text-slate-300 shrink-0">
+                            <i class="fa-solid ${isOpen ? 'fa-chevron-up text-cyan-400' : 'fa-chevron-down'} text-xs"></i>
+                        </div>
+                    </button>
+                    ${isOpen ? `
+                        <div class="px-4 pb-4 pt-2 border-t border-slate-700/70 text-xs leading-relaxed bg-slate-900/40">
+                            ${pt.content}
+                        </div>
+                    ` : ''}
+                `;
+                container.appendChild(item);
+            });
+        }
+
+        function triggerPiezoFootstepBoost() {
+            state.piezo.boostPower = Math.min(600, state.piezo.boostPower + state.piezo.tileCount * state.piezo.wattPerStep * 0.65);
+
+            // Buat ubin piezo menyala bergelombang
+            piezoTiles3D.forEach((tile) => {
+                if (tile.visible) {
+                    tile.userData.glowEnergy = 1.0;
+                }
+            });
+        }
+
+        function toggleCutawayMode() {
+            state.cutawayMode = !state.cutawayMode;
+            const btn = document.getElementById('btn-cutaway');
+
+            if (state.cutawayMode) {
+                btn.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-400 text-slate-950 border border-cyan-300 flex items-center gap-1.5 shadow-lg shadow-cyan-500/30 transition';
+                // Buat atap semi-transparan agar isi rumah & panel surya tetap terlihat
+                roofGroup.children.forEach(mesh => {
+                    mesh.material.transparent = true;
+                    mesh.material.opacity = 0.18;
+                });
+                upperWallsGroup.children.forEach(mesh => {
+                    mesh.material.transparent = true;
+                    mesh.material.opacity = 0.25;
+                });
+                setCameraView('interior');
+            } else {
+                btn.className = 'px-3 py-1.5 rounded-xl text-xs font-semibold bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 hover:bg-cyan-500/30 flex items-center gap-1.5 transition';
+                roofGroup.children.forEach(mesh => {
+                    mesh.material.transparent = false;
+                    mesh.material.opacity = 1.0;
+                });
+                upperWallsGroup.children.forEach((mesh, i) => {
+                    if (i === 4) {
+                        // Jendela kaca depan
+                        mesh.material.transparent = true;
+                        mesh.material.opacity = 0.32;
+                    } else {
+                        mesh.material.transparent = false;
+                        mesh.material.opacity = 1.0;
+                    }
+                });
+                setCameraView('overview');
+            }
+        }
+
+        function setCameraView(preset) {
+            if (preset === 'overview') {
+                camOrbit.desiredTheta = 0.68;
+                camOrbit.desiredPhi = 1.08;
+                camOrbit.desiredRadius = 34;
+                camOrbit.desiredTarget.set(0, 2.5, 0);
+            } else if (preset === 'solar') {
+                camOrbit.desiredTheta = 0.25;
+                camOrbit.desiredPhi = 0.78;
+                camOrbit.desiredRadius = 20;
+                camOrbit.desiredTarget.set(0, 6.5, 0);
+            } else if (preset === 'wind') {
+                camOrbit.desiredTheta = -0.75;
+                camOrbit.desiredPhi = 1.12;
+                camOrbit.desiredRadius = 22;
+                camOrbit.desiredTarget.set(-12, 6.5, -1);
+            } else if (preset === 'piezo') {
+                camOrbit.desiredTheta = 0.1;
+                camOrbit.desiredPhi = 0.92;
+                camOrbit.desiredRadius = 16;
+                camOrbit.desiredTarget.set(0, 0.8, 8.2);
+            } else if (preset === 'interior') {
+                camOrbit.desiredTheta = 0.35;
+                camOrbit.desiredPhi = 0.82;
+                camOrbit.desiredRadius = 21;
+                camOrbit.desiredTarget.set(0, 2.2, -1);
+            }
+        }
+
+        function toggle3DLabels() {
+            state.show3DLabels = !state.show3DLabels;
+            const container = document.getElementById('labels-container');
+            container.style.display = state.show3DLabels ? 'block' : 'none';
+        }
+
+        function toggleAutoTime() {
+            state.autoTime = !state.autoTime;
+            const icon = document.getElementById('icon-play-time');
+            icon.className = state.autoTime ? 'fa-solid fa-pause text-xs' : 'fa-solid fa-play text-xs';
+        }
+
+        function updateTimeFromSlider(val) {
+            state.timeOfDay = parseFloat(val);
+            updateSkyAndSunLighting();
+        }
+
+        function setWeatherPreset(preset) {
+            const buttons = ['cerah', 'berawan', 'berangin', 'malam'];
+            buttons.forEach(b => {
+                const el = document.getElementById('weather-' + b);
+                if (b === preset) {
+                    el.className = 'px-2.5 py-1.5 rounded-xl text-xs font-medium bg-amber-500/20 text-amber-300 border border-amber-500/40 flex items-center gap-1.5 transition';
+                } else {
+                    el.className = 'px-2.5 py-1.5 rounded-xl text-xs font-medium bg-slate-800/80 text-slate-300 border border-transparent hover:border-slate-600 flex items-center gap-1.5 transition';
+                }
+            });
+
+            if (preset === 'cerah') {
+                state.timeOfDay = 12.0;
+                document.getElementById('input-solar-eff').value = 95;
+                document.getElementById('input-wind-speed').value = 5.5;
+            } else if (preset === 'berawan') {
+                state.timeOfDay = 14.0;
+                document.getElementById('input-solar-eff').value = 45;
+                document.getElementById('input-wind-speed').value = 8.0;
+            } else if (preset === 'berangin') {
+                state.timeOfDay = 16.0;
+                document.getElementById('input-solar-eff').value = 60;
+                document.getElementById('input-wind-speed').value = 13.5;
+            } else if (preset === 'malam') {
+                state.timeOfDay = 21.5;
+                document.getElementById('input-solar-eff').value = 85;
+                document.getElementById('input-wind-speed').value = 9.0;
+            }
+
+            document.getElementById('slider-time').value = state.timeOfDay;
+            updateEnergyConfig();
+            updateSkyAndSunLighting();
+        }
+
+        function updateSkyAndSunLighting() {
+            const hrs = Math.floor(state.timeOfDay);
+            const mins = Math.floor((state.timeOfDay - hrs) * 60);
+            const timeStr = `${String(hrs).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
+            const isDay = state.timeOfDay >= 6 && state.timeOfDay <= 18;
+
+            const period = state.timeOfDay < 5 ? 'Dini Hari' :
+                           state.timeOfDay < 11 ? 'Pagi' :
+                           state.timeOfDay < 15 ? 'Siang' :
+                           state.timeOfDay < 18.5 ? 'Sore' : 'Malam';
+
+            document.getElementById('time-label').textContent = `${timeStr} ${period}`;
+            document.getElementById('time-icon').className = isDay
+                ? 'fa-solid fa-sun text-amber-400'
+                : 'fa-solid fa-moon text-sky-300';
+
+            // Posisi Matahari & Bulan
+            const sunAngle = ((state.timeOfDay - 6) / 12) * Math.PI;
+            const sunX = Math.cos(sunAngle) * 42;
+            const sunY = Math.sin(sunAngle) * 38;
+
+            sunMesh.position.set(-sunX, sunY, 16);
+            sunMesh.visible = sunY > -2;
+
+            moonMesh.position.set(sunX, -sunY, -16);
+            moonMesh.visible = !isDay;
+
+            if (isDay) {
+                const elev = Math.max(0.05, Math.sin(sunAngle));
+                sunLight.position.set(-sunX, Math.max(6, sunY), 16);
+                sunLight.intensity = 0.4 + elev * 0.95;
+                hemiLight.intensity = 0.45 + elev * 0.35;
+
+                // Warna langit dinamis
+                const skyColor = elev > 0.35 ? new THREE.Color(0x0284c7) : new THREE.Color(0x1e293b);
+                scene.background.lerp(skyColor, 0.15);
+                scene.fog.color.copy(scene.background);
+            } else {
+                sunLight.position.set(15, 25, -15);
+                sunLight.intensity = 0.18;
+                hemiLight.intensity = 0.22;
+                scene.background.setHex(0x090d16);
+                scene.fog.color.setHex(0x090d16);
+            }
+        }
+
+        function switchRightTab(tab) {
+            const tabApp = document.getElementById('tab-content-appliances');
+            const tabStat = document.getElementById('tab-content-analytics');
+            const btnApp = document.getElementById('tab-btn-appliances');
+            const btnStat = document.getElementById('tab-btn-analytics');
+
+            if (tab === 'appliances') {
+                tabApp.classList.remove('hidden');
+                tabStat.classList.add('hidden');
+                btnApp.className = 'flex-1 py-2 px-3 rounded-t-xl text-xs font-bold border-b-2 border-cyan-400 text-cyan-300 bg-slate-800/60 flex items-center justify-center gap-1.5 transition';
+                btnStat.className = 'flex-1 py-2 px-3 rounded-t-xl text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition';
+            } else {
+                tabApp.classList.add('hidden');
+                tabStat.classList.remove('hidden');
+                btnStat.className = 'flex-1 py-2 px-3 rounded-t-xl text-xs font-bold border-b-2 border-cyan-400 text-cyan-300 bg-slate-800/60 flex items-center justify-center gap-1.5 transition';
+                btnApp.className = 'flex-1 py-2 px-3 rounded-t-xl text-xs font-semibold border-b-2 border-transparent text-slate-400 hover:text-slate-200 flex items-center justify-center gap-1.5 transition';
+            }
+        }
+
+        function toggleMobilePanel(side) {
+            togglePanelVisibility(side);
+        }
+
+        function applyPanelsVisibilityUI() {
+            const leftPanel = document.getElementById('panel-left');
+            const leftRestore = document.getElementById('restore-panel-left');
+            if (state.panelsVisible.left) {
+                leftPanel.classList.remove('-translate-x-[120%]', 'opacity-0', 'pointer-events-none');
+                leftRestore.classList.add('hidden');
+                leftRestore.classList.remove('flex');
+            } else {
+                leftPanel.classList.add('-translate-x-[120%]', 'opacity-0', 'pointer-events-none');
+                leftRestore.classList.remove('hidden');
+                leftRestore.classList.add('flex');
+            }
+
+            const rightPanel = document.getElementById('panel-right');
+            const rightRestore = document.getElementById('restore-panel-right');
+            if (state.panelsVisible.right) {
+                rightPanel.classList.remove('translate-x-[120%]', 'opacity-0', 'pointer-events-none');
+                rightRestore.classList.add('hidden');
+                rightRestore.classList.remove('flex');
+            } else {
+                rightPanel.classList.add('translate-x-[120%]', 'opacity-0', 'pointer-events-none');
+                rightRestore.classList.remove('hidden');
+                rightRestore.classList.add('flex');
+            }
+
+            const weatherBar = document.getElementById('panel-weather-bar');
+            const weatherRestore = document.getElementById('restore-weather-bar');
+            if (state.panelsVisible.weather) {
+                weatherBar.classList.remove('hidden');
+                weatherRestore.classList.add('hidden');
+                weatherRestore.classList.remove('flex');
+            } else {
+                weatherBar.classList.add('hidden');
+                weatherRestore.classList.remove('hidden');
+                weatherRestore.classList.add('flex');
+            }
+
+            const bottomHud = document.getElementById('panel-bottom-hud');
+            const bottomRestore = document.getElementById('restore-bottom-hud');
+            if (state.panelsVisible.bottom) {
+                bottomHud.classList.remove('hidden');
+                bottomRestore.classList.add('hidden');
+                bottomRestore.classList.remove('flex');
+            } else {
+                bottomHud.classList.add('hidden');
+                bottomRestore.classList.remove('hidden');
+                bottomRestore.classList.add('flex');
+            }
+
+            // Update status tombol Layar Penuh
+            const anyOpen = state.panelsVisible.left || state.panelsVisible.right || state.panelsVisible.weather || state.panelsVisible.bottom;
+            const textClean = document.getElementById('text-clean-view');
+            const btnClean = document.getElementById('btn-clean-view');
+            if (textClean && btnClean) {
+                textClean.textContent = anyOpen ? 'Layar Penuh' : 'Buka Panel';
+                btnClean.className = anyOpen
+                    ? 'px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/20 hover:bg-emerald-500/30 text-emerald-300 border border-emerald-500/40 flex items-center gap-1.5 transition'
+                    : 'px-2.5 py-1.5 rounded-xl text-xs font-semibold bg-amber-400 text-slate-950 border border-amber-300 flex items-center gap-1.5 shadow-lg shadow-amber-500/20 transition';
+            }
+
+            requestAnimationFrame(syncHeaderSpacing);
+        }
+
+        // Fungsi otomatis mengatur jarak vertikal agar tombol/panel tidak pernah menimpa header atas
+        function syncHeaderSpacing() {
+            const headerEl = document.getElementById('main-header');
+            if (!headerEl) return;
+            const rect = headerEl.getBoundingClientRect();
+            const safeTopPx = Math.max(88, Math.round(rect.bottom + 12));
+
+            ['restore-panel-left', 'restore-panel-right', 'panel-left', 'panel-right', 'touch-hint-banner'].forEach(id => {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.style.top = `${safeTopPx}px`;
+                }
+            });
+        }
+
+        function togglePanelVisibility(panelKey) {
+            state.panelsVisible[panelKey] = !state.panelsVisible[panelKey];
+            // Di layar kecil (HP), jika membuka panel kiri maka tutup panel kanan agar tidak bertumpuk
+            if (window.innerWidth < 1024) {
+                if (panelKey === 'left' && state.panelsVisible.left) state.panelsVisible.right = false;
+                if (panelKey === 'right' && state.panelsVisible.right) state.panelsVisible.left = false;
+            }
+            applyPanelsVisibilityUI();
+        }
+
+        function toggleAllPanels() {
+            const anyOpen = state.panelsVisible.left || state.panelsVisible.right || state.panelsVisible.weather || state.panelsVisible.bottom;
+            const nextState = !anyOpen;
+            state.panelsVisible.left = nextState;
+            state.panelsVisible.right = nextState;
+            state.panelsVisible.weather = nextState;
+            state.panelsVisible.bottom = nextState;
+            applyPanelsVisibilityUI();
+        }
+
+        /******************************************************************
+         * 9. KONTROL KAMERA 3D (MOUSE & TOUCH + KLIK LANTAI PIEZO)
+         ******************************************************************/
+        function setupCameraControls(domElement) {
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+            let pointerDownPos = { x: 0, y: 0 };
+
+            // Helper untuk mendeteksi objek alat mana yang disentuh/diklik di 3D
+            function getClickedDeviceType(clientX, clientY) {
+                mouse.x = (clientX / window.innerWidth) * 2 - 1;
+                mouse.y = -(clientY / window.innerHeight) * 2 + 1;
+                raycaster.setFromCamera(mouse, camera);
+
+                // 1. Cek Panel Surya 3D
+                const activeSolar = solarPanels3D.filter(p => p.visible);
+                if (raycaster.intersectObjects(activeSolar, true).length > 0) {
+                    return 'solar';
+                }
+
+                // 2. Cek Kincir Angin 3D
+                const activeWind = windTurbines3D.filter(w => w.visible);
+                if (raycaster.intersectObjects(activeWind, true).length > 0) {
+                    return 'wind';
+                }
+
+                // 3. Cek Lantai Piezoelektrik 3D
+                const activePiezo = piezoTiles3D.filter(t => t.visible);
+                if (raycaster.intersectObjects(activePiezo, true).length > 0) {
+                    return 'piezo';
+                }
+
+                // 4. Cek Unit Bank Baterai
+                if (batteryBoxMesh && raycaster.intersectObject(batteryBoxMesh, true).length > 0) {
+                    return 'battery';
+                }
+
+                return null;
+            }
+
+            domElement.addEventListener('mousedown', (e) => {
+                camOrbit.isDragging = true;
+                camOrbit.prevX = e.clientX;
+                camOrbit.prevY = e.clientY;
+                pointerDownPos = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!camOrbit.isDragging) {
+                    // Ubah kursor menjadi tangan (pointer) saat berada di atas alat 3D
+                    const hoveredDevice = getClickedDeviceType(e.clientX, e.clientY);
+                    domElement.style.cursor = hoveredDevice ? 'pointer' : 'grab';
+                    return;
+                }
+                domElement.style.cursor = 'grabbing';
+                const dx = e.clientX - camOrbit.prevX;
+                const dy = e.clientY - camOrbit.prevY;
+                camOrbit.prevX = e.clientX;
+                camOrbit.prevY = e.clientY;
+
+                camOrbit.desiredTheta -= dx * 0.007;
+                camOrbit.desiredPhi = Math.max(0.3, Math.min(1.42, camOrbit.desiredPhi - dy * 0.007));
+            });
+
+            window.addEventListener('mouseup', () => {
+                camOrbit.isDragging = false;
+                domElement.style.cursor = 'grab';
+            });
+
+            domElement.addEventListener('wheel', (e) => {
+                e.preventDefault();
+                camOrbit.desiredRadius = Math.max(12, Math.min(58, camOrbit.desiredRadius + e.deltaY * 0.025));
+            }, { passive: false });
+
+            // Touch Controls untuk Mobile
+            domElement.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    camOrbit.isDragging = true;
+                    camOrbit.prevX = e.touches[0].clientX;
+                    camOrbit.prevY = e.touches[0].clientY;
+                    pointerDownPos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!camOrbit.isDragging || e.touches.length !== 1) return;
+                const dx = e.touches[0].clientX - camOrbit.prevX;
+                const dy = e.touches[0].clientY - camOrbit.prevY;
+                camOrbit.prevX = e.touches[0].clientX;
+                camOrbit.prevY = e.touches[0].clientY;
+
+                camOrbit.desiredTheta -= dx * 0.007;
+                camOrbit.desiredPhi = Math.max(0.3, Math.min(1.42, camOrbit.desiredPhi - dy * 0.007));
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => {
+                camOrbit.isDragging = false;
+            });
+
+            // Klik / Sentuh langsung pada objek 3D (Panel Surya, Kincir Angin, Lantai Piezo, atau Baterai)
+            domElement.addEventListener('click', (e) => {
+                // Pastikan pengguna mengklik/menyentuh, bukan sedang memutar kamera (drag)
+                const moveDist = Math.hypot(e.clientX - pointerDownPos.x, e.clientY - pointerDownPos.y);
+                if (moveDist > 7) return;
+
+                const clickedDevice = getClickedDeviceType(e.clientX, e.clientY);
+                if (clickedDevice) {
+                    if (clickedDevice === 'piezo') {
+                        triggerPiezoFootstepBoost();
+                    }
+                    openDeviceEduModal(clickedDevice);
+                }
+            });
+        }
+
+        function updateFloatingLabelsPosition() {
+            if (!state.show3DLabels) return;
+
+            const mapLabel = (id, vec3, visible = true) => {
+                const el = document.getElementById(id);
+                if (!visible) {
+                    el.style.opacity = '0';
+                    return;
+                }
+                const pos = vec3.clone().project(camera);
+                if (pos.z > 1) {
+                    el.style.opacity = '0';
+                    return;
+                }
+                const x = (pos.x * 0.5 + 0.5) * window.innerWidth;
+                const y = (-(pos.y * 0.5) + 0.5) * window.innerHeight;
+                el.style.left = `${x}px`;
+                el.style.top = `${y}px`;
+                el.style.opacity = '1';
+            };
+
+            mapLabel('label-solar', anchors3D.solar, state.solar.count > 0);
+            mapLabel('label-wind', anchors3D.wind, state.wind.count > 0);
+            mapLabel('label-piezo', anchors3D.piezo, state.piezo.tileCount > 0);
+            mapLabel('label-house', anchors3D.house, true);
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            resizeEdu3DPreview();
+            syncHeaderSpacing();
+        }
+
+        /******************************************************************
+         * 10. ANIMATION LOOP UTAMA
+         ******************************************************************/
+        let lastTime = performance.now();
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const now = performance.now();
+            const dt = Math.min(0.1, (now - lastTime) / 1000);
+            lastTime = now;
+
+            // 1. Auto Time Cycle
+            if (state.autoTime) {
+                state.timeOfDay = (state.timeOfDay + dt * 0.65) % 24;
+                document.getElementById('slider-time').value = state.timeOfDay;
+                updateSkyAndSunLighting();
+            }
+
+            // 2. Smooth Camera Orbit Interpolation
+            camOrbit.theta += (camOrbit.desiredTheta - camOrbit.theta) * 0.08;
+            camOrbit.phi += (camOrbit.desiredPhi - camOrbit.phi) * 0.08;
+            camOrbit.radius += (camOrbit.desiredRadius - camOrbit.radius) * 0.08;
+            camOrbit.target.lerp(camOrbit.desiredTarget, 0.08);
+
+            camera.position.x = camOrbit.target.x + camOrbit.radius * Math.sin(camOrbit.phi) * Math.sin(camOrbit.theta);
+            camera.position.y = camOrbit.target.y + camOrbit.radius * Math.cos(camOrbit.phi);
+            camera.position.z = camOrbit.target.z + camOrbit.radius * Math.sin(camOrbit.phi) * Math.cos(camOrbit.theta);
+            camera.lookAt(camOrbit.target);
+
+            // 3. Putar Bilah Kincir Angin sesuai kecepatan angin
+            const bladeSpinSpeed = state.wind.windSpeed * 0.55;
+            windTurbines3D.forEach((turbine) => {
+                if (turbine.visible && turbine.userData.rotor) {
+                    turbine.userData.rotor.rotation.z -= bladeSpinSpeed * dt;
+                }
+            });
+
+            // 4. Animasi Penghuni Berjalan di Lantai Piezoelektrik & Nyala Ubin
+            walkingAvatars3D.forEach((avatar) => {
+                if (!avatar.visible) return;
+                const u = avatar.userData;
+                u.angle += u.speed * dt;
+                const ax = u.centerX + Math.cos(u.angle) * u.radiusX;
+                const az = u.centerZ + Math.sin(u.angle * 1.3) * u.radiusZ;
+
+                // Gerakan melangkah naik-turun
+                const bob = Math.abs(Math.sin(u.angle * 6)) * 0.16;
+                avatar.position.set(ax, bob, az);
+                avatar.rotation.y = -u.angle;
+
+                // Cek ubin piezoelektrik terdekat yang diinjak
+                piezoTiles3D.forEach((tile) => {
+                    if (!tile.visible) return;
+                    const dx = tile.position.x - ax;
+                    const dz = tile.position.z - az;
+                    if (dx * dx + dz * dz < 0.65) {
+                        tile.userData.glowEnergy = 1.0;
+                    }
+                });
+            });
+
+            // Update visual glow ubin piezoelektrik
+            piezoTiles3D.forEach((tile) => {
+                if (!tile.visible) return;
+                const u = tile.userData;
+                if (u.glowEnergy > 0) {
+                    u.glowEnergy = Math.max(0, u.glowEnergy - dt * 1.8);
+                }
+                u.topPlate.material.emissiveIntensity = 0.15 + u.glowEnergy * 1.4;
+                tile.position.y = u.baseY - u.glowEnergy * 0.04;
+            });
+
+            // 5. Efek Kilau Sel Surya saat menghasilkan listrik
+            const solarRatio = state.solar.currentOutput > 0 ? 0.45 : 0.1;
+            solarPanels3D.forEach((panel) => {
+                if (panel.visible && panel.userData.cellMesh) {
+                    panel.userData.cellMesh.material.emissiveIntensity = solarRatio;
+                }
+            });
+
+            // 6. Partikel Aura Energi Bersih (Tanpa kabel)
+            wirelessParticles.forEach((p) => {
+                const u = p.userData;
+                u.phase += u.speed * dt;
+                p.position.x = Math.cos(u.phase) * u.radius;
+                p.position.z = Math.sin(u.phase) * u.radius;
+                p.position.y = u.baseY + Math.sin(u.phase * 2) * 0.8;
+            });
+
+            // 7. Hitung Simulasi Energi & Update UI
+            calculateEnergySimulation(dt);
+            updateFloatingLabelsPosition();
+
+            // 8. Render Preview 3D di dalam Modal jika sedang dibuka
+            if (currentEduDevice) {
+                updateEdu3DAnimation(dt);
+            }
+
+            renderer.render(scene, camera);
+        }
+
+        // Jalankan Aplikasi saat Window selesai dimuat
+        window.onload = function () {
+            initThreeJS();
+            renderAppliancesList();
+            updateEnergyConfig();
+            updateSkyAndSunLighting();
+            applyPanelsVisibilityUI();
+            syncHeaderSpacing();
+            animate();
+        };
+    </script>
+</body>
+</html>
